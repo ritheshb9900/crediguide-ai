@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Applicant {
+  id                  String                 @id @default(uuid())
+  firstName           String
+  lastName            String
+  email               String                 @unique
+  phone               String?
+  dateOfBirth         DateTime?
+  age                 Int?
+  employmentType      String                 // e.g. SALARIED, SELF_EMPLOYED, BUSINESS
+  employerName        String?
+  monthlyNetIncome    Float
+  existingMonthlyEmi  Float                  @default(0)
+  creditScore         Int?
+  city                String?
+  state               String?
+  pincode             String?
+  residenceType       String?                // e.g. OWNED, RENTED, PARENTAL
+  workExperienceYears Float?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  assessments         EligibilityAssessment[]
+
+  @@map("applicants")
+}
+
+model LoanProduct {
+  id                      String                 @id @default(uuid())
+  productCode             String                 @unique // e.g. PL_STANDARD, PL_PREMIUM, PL_EXPRESS
+  name                    String
+  description             String
+  minAmount               Float
+  maxAmount               Float
+  minTenureMonths         Int
+  maxTenureMonths         Int
+  minInterestRate         Float
+  maxInterestRate         Float
+  processingFeePercentage Float                  @default(1.0)
+  isActive                Boolean                @default(true)
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  rules                   EligibilityRule[]
+  documentRequirements    DocumentRequirement[]
+  assessments             EligibilityAssessment[]
+
+  @@map("loan_products")
+}
+
+model EligibilityRule {
+  id             String                @id @default(uuid())
+  productId      String
+  ruleCode       String                // e.g. MIN_AGE, MAX_AGE, MIN_INCOME, MIN_CREDIT_SCORE, MAX_FOIR, MIN_WORK_EXP
+  name           String
+  description    String
+  category       String                // AGE, INCOME, CREDIT_SCORE, FOIR, EMPLOYMENT
+  operator       String                // GTE, LTE, EQ, IN, BETWEEN
+  thresholdValue String                // Evaluated by deterministic rule engine
+  weight         Int                   @default(1)
+  isMandatory    Boolean               @default(true)
+  errorMessage   String
+  isActive       Boolean               @default(true)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  product        LoanProduct           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  criteria       AssessmentCriterion[]
+
+  @@map("eligibility_rules")
+}
+
+model EligibilityAssessment {
+  id                     String                @id @default(uuid())
+  applicantId            String?
+  productId              String
+  requestedAmount        Float
+  requestedTenureMonths  Int
+  status                 String                // PRELIMINARY_ELIGIBLE, CONDITIONALLY_ELIGIBLE, INELIGIBLE, INCOMPLETE_DATA
+  eligibleAmount         Float?
+  indicativeInterestRate Float?
+  indicativeEmi          Float?
+  foir                   Float?                // Fixed Obligation to Income Ratio
+  confidenceScore        Float?                // Engine confidence (0.0 - 1.0)
+  riskTier               String?               // LOW, MODERATE, HIGH
+  summary                String                // Deterministic preliminary rationale
+  disclaimer             String                @default("This is a preliminary, indicative loan eligibility assessment and does NOT constitute a formal loan approval, commitment, or credit offer.")
+  source                 String                @default("CHATBOT") // CHATBOT, PORTAL, CSV_IMPORT, EXTERNAL_API
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  applicant              Applicant?            @relation(fields: [applicantId], references: [id], onDelete: SetNull)
+  product                LoanProduct           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  criteria               AssessmentCriterion[]
+
+  @@map("eligibility_assessments")
+}
+
+model AssessmentCriterion {
+  id                String                @id @default(uuid())
+  assessmentId      String
+  ruleId            String?
+  criterionName     String
+  criterionCategory String
+  passed            Boolean
+  actualValue       String
+  expectedValue     String
+  explanation       String
+  isMandatory       Boolean               @default(true)
+  createdAt         DateTime              @default(now())
+
+  assessment        EligibilityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  rule              EligibilityRule?      @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@map("assessment_criteria")
+}
+
+model DocumentRequirement {
+  id             String      @id @default(uuid())
+  productId      String
+  documentType   String      // IDENTITY_PROOF, INCOME_PROOF, BANK_STATEMENT, ADDRESS_PROOF, EMPLOYMENT_ID
+  name           String
+  description    String
+  isMandatory    Boolean     @default(true)
+  employmentType String?     @default("ALL") // ALL, SALARIED, SELF_EMPLOYED
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  product        LoanProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("document_requirements")
+}
