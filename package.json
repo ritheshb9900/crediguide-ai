@@ -16,12 +16,14 @@
     "test:ai": "tsx tests/mock-ai.test.ts",
     "test:chat": "tsx tests/chat-route.test.ts",
     "test:financial": "tsx tests/financial.test.ts",
-    "test:seed": "tsx tests/seed-data.test.ts"
+    "test:seed": "tsx tests/seed-data.test.ts",
+    "test:auth-infra": "tsx tests/auth-infra.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.2.2",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "class-variance-authority": "^0.7.1",
