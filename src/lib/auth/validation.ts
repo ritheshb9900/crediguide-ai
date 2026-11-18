@@ -66,6 +66,8 @@ export const RegisterApplicantInputSchema = z
     email: NormalizedEmailSchema,
     phone: OptionalIndianPhoneSchema,
     password: PasswordSchema,
+    employmentType: z.string().trim().max(50).optional(),
+    monthlyNetIncome: z.number().min(0, "Monthly net income cannot be negative.").max(100000000).optional(),
   })
   .strict(); // Rejects any unrecognized fields like `role` or `isAdmin`
 
