@@ -42,20 +42,70 @@ export function normalizeEmploymentType(raw: string): "Salaried" | "Self-employe
 
 /**
  * Evaluates personal loan eligibility deterministically based on product rules and mathematical formulas.
+ * Evaluates all configured product-specific rules dynamically while preserving the 6-criterion
+ * displayed response structure for backward compatibility.
  */
 export function evaluateLoanEligibility(
   input: DeterministicEvaluationInput
 ): DeterministicAssessmentResponse {
-  const { applicant, requestedAmount, requestedTenureMonths, product, documents } = input;
+  const { applicant, requestedAmount, requestedTenureMonths, product, rules, documents } = input;
 
-  // 1. Establish Demonstration Thresholds (from product or fallback configuration)
-  const MIN_AGE = 21;
-  const MAX_AGE = 60;
-  const MIN_INCOME = 30000;
-  const MAX_FOIR_THRESHOLD = 50.0; // Configurable demonstration rule threshold (50%)
-  const MIN_TENURE_MONTHS = product.minTenureMonths || 12; // 1 year
-  const MAX_TENURE_MONTHS = product.maxTenureMonths || 84; // 7 years
-  const INDICATIVE_RATE = product.minInterestRate || 10.5;
+  // 1. Establish Demonstration Thresholds dynamically from product-specific rules
+  // Rule 1: AGE_RANGE
+  const ageRule = rules?.find((r) => r.ruleCode === "AGE_RANGE" && r.isActive);
+  let minAge = 21;
+  let maxAge = 60;
+  if (ageRule?.thresholdValue) {
+    const parts = ageRule.thresholdValue.split(",").map((s) => parseInt(s.trim(), 10));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      minAge = parts[0];
+      maxAge = parts[1];
+    }
+  }
+
+  // Rule 2: MIN_INCOME
+  const incomeRule = rules?.find((r) => r.ruleCode === "MIN_INCOME" && r.isActive);
+  let minIncome = 30000;
+  if (incomeRule?.thresholdValue) {
+    const val = parseFloat(incomeRule.thresholdValue);
+    if (!isNaN(val)) minIncome = val;
+  }
+
+  // Rule 3: MAX_FOIR
+  const foirRule = rules?.find((r) => r.ruleCode === "MAX_FOIR" && r.isActive);
+  let maxFoirThreshold = 50.0;
+  if (foirRule?.thresholdValue) {
+    const val = parseFloat(foirRule.thresholdValue);
+    if (!isNaN(val)) maxFoirThreshold = val;
+  }
+
+  // Rule 4: TENURE_RANGE
+  const tenureRule = rules?.find((r) => r.ruleCode === "TENURE_RANGE" && r.isActive);
+  let minTenureMonths = product.minTenureMonths || 12;
+  let maxTenureMonths = product.maxTenureMonths || 84;
+  if (tenureRule?.thresholdValue) {
+    const parts = tenureRule.thresholdValue.split(",").map((s) => parseInt(s.trim(), 10));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      minTenureMonths = parts[0];
+      maxTenureMonths = parts[1];
+    }
+  }
+
+  // Rule 5: EMPLOYMENT_TYPE
+  const empRule = rules?.find((r) => r.ruleCode === "EMPLOYMENT_TYPE" && r.isActive);
+  const allowedEmpTypes = empRule?.thresholdValue
+    ? empRule.thresholdValue.split(",").map((s) => s.trim().toUpperCase().replace(/[-_\s]+/g, ""))
+    : ["SALARIED", "SELFEMPLOYED"];
+
+  // Rule 6: MIN_CREDIT_SCORE
+  const creditScoreRule = rules?.find((r) => r.ruleCode === "MIN_CREDIT_SCORE" && r.isActive);
+  let minCreditScore: number | null = null;
+  if (creditScoreRule?.thresholdValue) {
+    const val = parseInt(creditScoreRule.thresholdValue, 10);
+    if (!isNaN(val)) minCreditScore = val;
+  }
+
+  const indicativeRate = product.minInterestRate || 10.5;
 
   // 2. Perform Financial Calculations
   const existingFoir = calculateExistingFoir(
@@ -65,7 +115,7 @@ export function evaluateLoanEligibility(
 
   const proposedEmi = calculateReducingBalanceEmi(
     requestedAmount,
-    INDICATIVE_RATE,
+    indicativeRate,
     requestedTenureMonths
   );
 
@@ -78,14 +128,14 @@ export function evaluateLoanEligibility(
   const availableMonthlyCapacity = calculateAvailableMonthlyHeadroom(
     applicant.monthlyNetIncome,
     applicant.existingMonthlyEmi,
-    MAX_FOIR_THRESHOLD
+    maxFoirThreshold
   );
 
   const maxEligibleAmount = calculateMaxEligibleLoanAmount(
     applicant.monthlyNetIncome,
     applicant.existingMonthlyEmi,
-    MAX_FOIR_THRESHOLD,
-    INDICATIVE_RATE,
+    maxFoirThreshold,
+    indicativeRate,
     requestedTenureMonths,
     product.maxAmount
   );
@@ -100,7 +150,7 @@ export function evaluateLoanEligibility(
     existingEmi: applicant.existingMonthlyEmi,
     requestedAmount,
     requestedTenureMonths,
-    indicativeInterestRate: INDICATIVE_RATE,
+    indicativeInterestRate: indicativeRate,
     proposedMonthlyEmi: proposedEmi,
     existingFoirPercentage: existingFoir,
     totalFoirPercentage: totalFoir,
@@ -113,125 +163,166 @@ export function evaluateLoanEligibility(
   const criteria: ExplainedCriterion[] = [];
   const reasons: string[] = [];
 
-  // CRITERION 1: Age Rule (Min 21, Max 60)
-  const agePassed = applicant.age >= MIN_AGE && applicant.age <= MAX_AGE;
+  // CRITERION 1: Age Rule
+  const agePassed = applicant.age >= minAge && applicant.age <= maxAge;
   criteria.push({
     criterion: "Applicant Age Range",
     applicantValue: `${applicant.age} years`,
-    requiredValue: `${MIN_AGE} to ${MAX_AGE} years`,
+    requiredValue: `${minAge} to ${maxAge} years`,
     status: agePassed ? "PASS" : "FAIL",
     explanation: agePassed
-      ? `Applicant's age of ${applicant.age} is within the required range of ${MIN_AGE} to ${MAX_AGE} years.`
-      : `Applicant's age of ${applicant.age} fails the age criteria. Minimum age is ${MIN_AGE} and maximum age is ${MAX_AGE} years.`,
+      ? `Applicant's age of ${applicant.age} is within the required range of ${minAge} to ${maxAge} years.`
+      : `Applicant's age of ${applicant.age} fails the age criteria. Minimum age is ${minAge} and maximum age is ${maxAge} years.`,
     isMandatory: true,
   });
   if (!agePassed) {
     reasons.push(
-      applicant.age < MIN_AGE
-        ? `Applicant is ${applicant.age} years old, which is below the minimum age of ${MIN_AGE}.`
-        : `Applicant is ${applicant.age} years old, which exceeds the maximum maturity age of ${MAX_AGE}.`
+      applicant.age < minAge
+        ? `Applicant is ${applicant.age} years old, which is below the minimum age of ${minAge}.`
+        : `Applicant is ${applicant.age} years old, which exceeds the maximum maturity age of ${maxAge}.`
     );
   }
 
-  // CRITERION 2: Minimum Income Rule (₹30,000)
-  const incomePassed = applicant.monthlyNetIncome >= MIN_INCOME;
+  // CRITERION 2: Minimum Income Rule
+  const incomePassed = applicant.monthlyNetIncome >= minIncome;
   criteria.push({
     criterion: "Minimum Monthly Income",
     applicantValue: formatCurrencyINR(applicant.monthlyNetIncome),
-    requiredValue: `${formatCurrencyINR(MIN_INCOME)} or more`,
+    requiredValue: `${formatCurrencyINR(minIncome)} or more`,
     status: incomePassed ? "PASS" : "FAIL",
     explanation: incomePassed
-      ? `The applicant's monthly income (${formatCurrencyINR(applicant.monthlyNetIncome)}) is above the configured minimum threshold of ${formatCurrencyINR(MIN_INCOME)}.`
-      : `The applicant's monthly income (${formatCurrencyINR(applicant.monthlyNetIncome)}) is below the required threshold of ${formatCurrencyINR(MIN_INCOME)}.`,
+      ? `The applicant's monthly income (${formatCurrencyINR(applicant.monthlyNetIncome)}) is above the configured minimum threshold of ${formatCurrencyINR(minIncome)}.`
+      : `The applicant's monthly income (${formatCurrencyINR(applicant.monthlyNetIncome)}) is below the required threshold of ${formatCurrencyINR(minIncome)}.`,
     isMandatory: true,
   });
   if (!incomePassed) {
     reasons.push(
-      `Monthly income of ${formatCurrencyINR(applicant.monthlyNetIncome)} is lower than the mandatory minimum of ${formatCurrencyINR(MIN_INCOME)}.`
+      `Monthly income of ${formatCurrencyINR(applicant.monthlyNetIncome)} is lower than the mandatory minimum of ${formatCurrencyINR(minIncome)}.`
     );
   }
 
-  // CRITERION 3: EMI / FOIR Rule (Max 50%)
-  const foirPassed = existingFoir <= MAX_FOIR_THRESHOLD;
+  // CRITERION 3: EMI / FOIR Rule
+  const foirPassed = existingFoir <= maxFoirThreshold;
   criteria.push({
     criterion: "Existing FOIR (Configurable Demonstration Rule)",
     applicantValue: `${existingFoir.toFixed(2)}% (${formatCurrencyINR(applicant.existingMonthlyEmi)} / month)`,
-    requiredValue: `${MAX_FOIR_THRESHOLD.toFixed(2)}% or lower (Configurable Demonstration Rule)`,
+    requiredValue: `${maxFoirThreshold.toFixed(2)}% or lower (Configurable Demonstration Rule)`,
     status: foirPassed ? "PASS" : "FAIL",
     explanation: foirPassed
-      ? `Existing monthly debt burden (FOIR) of ${existingFoir.toFixed(2)}% is within the allowable demonstration threshold of ${MAX_FOIR_THRESHOLD.toFixed(2)}%.`
-      : `Existing monthly debt burden (FOIR) of ${existingFoir.toFixed(2)}% exceeds the allowable demonstration threshold of ${MAX_FOIR_THRESHOLD.toFixed(2)}%. Existing obligations consume too high a portion of monthly income.`,
+      ? `Existing monthly debt burden (FOIR) of ${existingFoir.toFixed(2)}% is within the allowable demonstration threshold of ${maxFoirThreshold.toFixed(2)}%.`
+      : `Existing monthly debt burden (FOIR) of ${existingFoir.toFixed(2)}% exceeds the allowable demonstration threshold of ${maxFoirThreshold.toFixed(2)}%. Existing obligations consume too high a portion of monthly income.`,
     isMandatory: true,
   });
   if (!foirPassed) {
     reasons.push(
-      `Existing debt-to-income ratio (FOIR) of ${existingFoir.toFixed(2)}% exceeds the allowable demonstration threshold of ${MAX_FOIR_THRESHOLD.toFixed(2)}%.`
+      `Existing debt-to-income ratio (FOIR) of ${existingFoir.toFixed(2)}% exceeds the allowable demonstration threshold of ${maxFoirThreshold.toFixed(2)}%.`
     );
   }
 
-  // CRITERION 4: Loan Tenure Range (1 to 7 years)
+  // CRITERION 4: Loan Tenure Range
   const tenurePassed =
-    requestedTenureMonths >= MIN_TENURE_MONTHS && requestedTenureMonths <= MAX_TENURE_MONTHS;
+    requestedTenureMonths >= minTenureMonths && requestedTenureMonths <= maxTenureMonths;
   criteria.push({
     criterion: "Loan Tenure Range",
     applicantValue: `${requestedTenureMonths} months (${(requestedTenureMonths / 12).toFixed(1)} years)`,
-    requiredValue: `${MIN_TENURE_MONTHS} to ${MAX_TENURE_MONTHS} months (1 to 7 years)`,
+    requiredValue: `${minTenureMonths} to ${maxTenureMonths} months (${minTenureMonths / 12} to ${maxTenureMonths / 12} years)`,
     status: tenurePassed ? "PASS" : "FAIL",
     explanation: tenurePassed
-      ? `Requested tenure of ${requestedTenureMonths} months is within the allowed range of 1 to 7 years (${MIN_TENURE_MONTHS}–${MAX_TENURE_MONTHS} months).`
-      : `Requested tenure of ${requestedTenureMonths} months is outside the allowed range of 1 to 7 years (${MIN_TENURE_MONTHS}–${MAX_TENURE_MONTHS} months).`,
+      ? `Requested tenure of ${requestedTenureMonths} months is within the allowed range of 1 to 7 years (${minTenureMonths}–${maxTenureMonths} months).`
+      : `Requested tenure of ${requestedTenureMonths} months is outside the allowed range of 1 to 7 years (${minTenureMonths}–${maxTenureMonths} months).`,
     isMandatory: true,
   });
   if (!tenurePassed) {
     reasons.push(
-      `Requested tenure of ${requestedTenureMonths} months is outside the product limits (12 to 84 months).`
+      `Requested tenure of ${requestedTenureMonths} months is outside the product limits (${minTenureMonths} to ${maxTenureMonths} months).`
     );
   }
 
-  // CRITERION 5: Employment Type (Salaried or Self-employed)
+  // CRITERION 5: Employment Type
   const normalizedEmp = normalizeEmploymentType(applicant.employmentType);
-  const employmentPassed = normalizedEmp !== "Unsupported";
+  const normalizedCheckKey = normalizedEmp === "Salaried" ? "SALARIED" : normalizedEmp === "Self-employed" ? "SELFEMPLOYED" : "UNSUPPORTED";
+  const isTypeAllowed = allowedEmpTypes.some((t) => t.includes(normalizedCheckKey) || normalizedCheckKey.includes(t));
+  const employmentPassed = normalizedEmp !== "Unsupported" && isTypeAllowed;
+
+  const requiresSalariedOnly = allowedEmpTypes.every((t) => !t.includes("SELF"));
+  const expectedEmpDescription = requiresSalariedOnly ? "Salaried only" : "Salaried or Self-employed";
+
   criteria.push({
     criterion: "Eligible Employment Type",
     applicantValue: applicant.employmentType,
-    requiredValue: "Salaried or Self-employed",
+    requiredValue: expectedEmpDescription,
     status: employmentPassed ? "PASS" : "FAIL",
     explanation: employmentPassed
       ? `Applicant employment type '${applicant.employmentType}' (normalized: ${normalizedEmp}) is supported by this loan product.`
-      : `Applicant employment type '${applicant.employmentType}' is not supported. Product requires Salaried or Self-employed applicants.`,
+      : `Applicant employment type '${applicant.employmentType}' is not supported. ${product.name} requires ${expectedEmpDescription} applicants.`,
     isMandatory: true,
   });
   if (!employmentPassed) {
     reasons.push(
-      `Employment type '${applicant.employmentType}' is not supported. Must be Salaried or Self-employed.`
+      `Employment type '${applicant.employmentType}' is not supported. Must be ${expectedEmpDescription}.`
     );
   }
 
-  // CRITERION 6: Requested Amount vs Calculated Repayment Capacity
+  // CRITERION 6: Requested Loan Amount, Repayment Capacity & Credit Score
   const amountWithinProductLimits =
     requestedAmount >= product.minAmount && requestedAmount <= product.maxAmount;
   const capacityPassed = requestedAmount <= maxEligibleAmount && amountWithinProductLimits;
 
+  // Credit score evaluation
+  let creditScorePassed = true;
+  if (minCreditScore !== null) {
+    if (applicant.creditScore !== undefined && applicant.creditScore !== null) {
+      creditScorePassed = applicant.creditScore >= minCreditScore;
+      if (!creditScorePassed) {
+        reasons.push(
+          `Credit score of ${applicant.creditScore} is below the mandatory minimum threshold of ${minCreditScore} required for ${product.name}.`
+        );
+      }
+    }
+  }
+
+  const criterion6Passed = capacityPassed && creditScorePassed;
+
+  let crit6ApplicantValue = formatCurrencyINR(requestedAmount);
+  let crit6RequiredValue = `Up to ${formatCurrencyINR(maxEligibleAmount)} (Product limit: ${formatCurrencyINR(product.maxAmount)})`;
+  let crit6Explanation = "";
+
+  if (!creditScorePassed && applicant.creditScore != null && minCreditScore != null) {
+    crit6ApplicantValue = `${formatCurrencyINR(requestedAmount)} (Credit Score: ${applicant.creditScore})`;
+    crit6RequiredValue = `Up to ${formatCurrencyINR(maxEligibleAmount)} (Min Score: ${minCreditScore})`;
+    crit6Explanation = `Credit score of ${applicant.creditScore} does not meet the product minimum threshold of ${minCreditScore} for ${product.name}.`;
+  } else if (capacityPassed) {
+    crit6Explanation = `Requested loan amount of ${formatCurrencyINR(requestedAmount)} is fully serviceable within the calculated debt capacity of ${formatCurrencyINR(maxEligibleAmount)}.`;
+  } else if (requestedAmount > product.maxAmount) {
+    crit6Explanation = `Requested loan amount of ${formatCurrencyINR(requestedAmount)} exceeds the maximum product cap of ${formatCurrencyINR(product.maxAmount)}.`;
+  } else {
+    crit6Explanation = `Requested loan amount of ${formatCurrencyINR(requestedAmount)} exceeds the calculated maximum borrowing capacity of ${formatCurrencyINR(maxEligibleAmount)} based on income and FOIR constraints.`;
+  }
+
   criteria.push({
     criterion: "Requested Loan Amount & Repayment Capacity",
-    applicantValue: formatCurrencyINR(requestedAmount),
-    requiredValue: `Up to ${formatCurrencyINR(maxEligibleAmount)} (Product limit: ${formatCurrencyINR(product.maxAmount)})`,
-    status: capacityPassed ? "PASS" : "FAIL",
-    explanation: capacityPassed
-      ? `Requested loan amount of ${formatCurrencyINR(requestedAmount)} is fully serviceable within the calculated debt capacity of ${formatCurrencyINR(maxEligibleAmount)}.`
-      : requestedAmount > product.maxAmount
-      ? `Requested loan amount of ${formatCurrencyINR(requestedAmount)} exceeds the maximum product cap of ${formatCurrencyINR(product.maxAmount)}.`
-      : `Requested loan amount of ${formatCurrencyINR(requestedAmount)} exceeds the calculated maximum borrowing capacity of ${formatCurrencyINR(maxEligibleAmount)} based on income and FOIR constraints.`,
-    isMandatory: false, // Capacity mismatch can lead to CONDITIONAL approval with lower sanctioned amount
+    applicantValue: crit6ApplicantValue,
+    requiredValue: crit6RequiredValue,
+    status: criterion6Passed ? "PASS" : "FAIL",
+    explanation: crit6Explanation,
+    isMandatory: false,
   });
 
+  // Missing Information Detection
+  const missingInformation: string[] = [];
+  let requiresMoreInformation = false;
+
+  if (applicant.creditScore == null && minCreditScore != null) {
+    requiresMoreInformation = true;
+    missingInformation.push(`Credit bureau score verification (minimum required score: ${minCreditScore})`);
+  }
+  if (!applicant.employerName && normalizedEmp === "Salaried") {
+    missingInformation.push("Employer organization verification");
+  }
+
   // 4. Determine Overall Result Status
-  // Rule:
-  // - If any mandatory basic criteria (Age, Income, Existing FOIR, Tenure, Employment) fail => NOT_ELIGIBLE
-  // - If all basic criteria pass, but requested amount exceeds max capacity => CONDITIONAL (eligible for maxEligibleAmount)
-  // - If all criteria pass => ELIGIBLE
   const mandatoryBasicCriteriaPassed =
-    agePassed && incomePassed && foirPassed && tenurePassed && employmentPassed;
+    agePassed && incomePassed && foirPassed && tenurePassed && employmentPassed && creditScorePassed;
 
   let overallStatus: EligibilityStatus;
   const nextSteps: string[] = [];
@@ -241,7 +332,7 @@ export function evaluateLoanEligibility(
     nextSteps.push(
       "Review the failed mandatory criteria above.",
       "Consider applying with a creditworthy co-applicant or clearing existing EMIs to lower your FOIR.",
-      "Re-apply once the minimum income or employment requirement is satisfied."
+      "Re-apply once the minimum income, credit score or employment requirement is satisfied."
     );
   } else if (!capacityPassed) {
     overallStatus = "CONDITIONAL";
@@ -257,7 +348,7 @@ export function evaluateLoanEligibility(
     } else {
       overallStatus = "NOT_ELIGIBLE";
       reasons.push(
-        "Existing debt obligations leave no available monthly capacity for additional loan servicing under the 50% FOIR limit."
+        `Existing debt obligations leave no available monthly capacity for additional loan servicing under the ${maxFoirThreshold}% FOIR limit.`
       );
       nextSteps.push(
         "Prepay or close existing loans to create monthly EMI headroom.",
@@ -271,7 +362,7 @@ export function evaluateLoanEligibility(
     );
     nextSteps.push(
       "Complete applicable KYC verification with the lender.",
-      "Upload 3 months salary slips and 6 months bank statement.",
+      "Upload required proof documents based on your profile.",
       "Proceed to lender verification and formal underwriting."
     );
   }
@@ -281,7 +372,7 @@ export function evaluateLoanEligibility(
     .filter((doc) => {
       if (!doc.employmentType || doc.employmentType === "ALL") return true;
       if (normalizedEmp === "Salaried" && doc.employmentType === "SALARIED") return true;
-      if (normalizedEmp === "Self-employed" && doc.employmentType.includes("SELF")) return true;
+      if (normalizedEmp === "Self-employed" && (doc.employmentType === "SELF_EMPLOYED" || doc.employmentType.includes("SELF"))) return true;
       return false;
     })
     .map((doc) => ({
@@ -309,9 +400,9 @@ export function evaluateLoanEligibility(
       name: product.name,
       minAmount: product.minAmount,
       maxAmount: product.maxAmount,
-      minTenureMonths: product.minTenureMonths,
-      maxTenureMonths: product.maxTenureMonths,
-      indicativeInterestRate: INDICATIVE_RATE,
+      minTenureMonths: minTenureMonths,
+      maxTenureMonths: maxTenureMonths,
+      indicativeInterestRate: indicativeRate,
       processingFeePercentage: product.processingFeePercentage,
     },
     financialMetrics,
@@ -322,5 +413,7 @@ export function evaluateLoanEligibility(
     disclaimer:
       "This is a PRELIMINARY, INDICATIVE eligibility assessment based on demonstration policy rules and self-declared applicant information. It does NOT constitute a final loan sanction, approval, or binding credit commitment. Real disbursement requires physical KYC, underwriting review, and formal sanction letter issuance.",
     evaluatedAt: new Date().toISOString(),
+    requiresMoreInformation,
+    missingInformation: missingInformation.length > 0 ? missingInformation : undefined,
   };
 }

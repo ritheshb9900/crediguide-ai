@@ -15,7 +15,8 @@
     "test:engine": "tsx tests/deterministic-engine.test.ts",
     "test:ai": "tsx tests/mock-ai.test.ts",
     "test:chat": "tsx tests/chat-route.test.ts",
-    "test:financial": "tsx tests/financial.test.ts"
+    "test:financial": "tsx tests/financial.test.ts",
+    "test:seed": "tsx tests/seed-data.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

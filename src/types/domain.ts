@@ -176,6 +176,8 @@ export interface DeterministicAssessmentResponse {
   documents: DocumentItem[];
   disclaimer: string;
   evaluatedAt: string;
+  requiresMoreInformation?: boolean;
+  missingInformation?: string[];
 }
 
 /**
