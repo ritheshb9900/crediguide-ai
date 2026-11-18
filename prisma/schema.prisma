@@ -381,7 +381,7 @@ model UploadedDocument {
   uploadedAt         DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
 
-  application        LoanApplication            @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application        LoanApplication            @relation(fields: [applicationId], references: [id], onDelete: Restrict)
   requirement        DocumentRequirement?       @relation(fields: [requirementId], references: [id], onDelete: SetNull)
   verifiedBy         User?                      @relation("OfficerVerifiedDocuments", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
 
@@ -405,7 +405,7 @@ model ApplicationReview {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
-  application         LoanApplication      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application         LoanApplication      @relation(fields: [applicationId], references: [id], onDelete: Restrict)
   officer             User                 @relation("OfficerReviews", fields: [officerId], references: [id], onDelete: Restrict)
 
   @@index([applicationId, stage])
@@ -427,7 +427,7 @@ model ApplicationStatusHistory {
   metadata       Json?             // Contextual snapshot
   createdAt      DateTime          @default(now())
 
-  application    LoanApplication   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application    LoanApplication   @relation(fields: [applicationId], references: [id], onDelete: Restrict)
   changedBy      User?             @relation("StatusChangeActor", fields: [changedById], references: [id], onDelete: SetNull)
 
   @@index([applicationId, createdAt])
