@@ -13,7 +13,8 @@ const buttonVariants = cva(
         secondary: "bg-slate-100 text-slate-900 shadow-sm hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700",
         ghost: "hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100",
         link: "text-blue-600 underline-offset-4 hover:underline",
-        tcs: "bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md hover:from-blue-800 hover:to-indigo-900",
+        brand: "bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md hover:from-blue-800 hover:to-indigo-900",
+        crediguide: "bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md hover:from-blue-800 hover:to-indigo-900",
       },
       size: {
         default: "h-10 px-4 py-2",

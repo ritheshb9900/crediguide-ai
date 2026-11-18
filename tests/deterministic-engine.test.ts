@@ -114,7 +114,7 @@ const TEST_CASES: TestCase[] = [
 
 async function runDeterministicTests() {
   console.log("================================================================================");
-  console.log("🏦 TCS Automated Loan Eligibility Engine - Deterministic Test Suite");
+  console.log("🏦 CrediGuide AI - Deterministic Policy Engine Test Suite");
   console.log("================================================================================\n");
 
   let passedTests = 0;

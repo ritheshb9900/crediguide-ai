@@ -16,7 +16,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("🌱 Starting database seeding with TCS Loan Eligibility dataset...");
+  console.log("🌱 Starting database seeding with CrediGuide AI master catalog...");
   const pool = new Pool({ connectionString });
   const adapter = new PrismaPg(pool);
   const prisma = new PrismaClient({ adapter });

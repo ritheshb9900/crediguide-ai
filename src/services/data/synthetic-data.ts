@@ -9,8 +9,8 @@ export const SYNTHETIC_PRODUCTS: LoanProductData[] = [
   {
     id: "prod-pl-standard",
     productCode: "PL_STANDARD",
-    name: "TCS Demonstration Personal Loan",
-    description: "Standard demonstration personal loan featuring configurable rule parameters: Age 21–60, Min Income ₹30,000, Max FOIR 50%, and Tenure 1–7 years.",
+    name: "CrediGuide Standard Personal Loan",
+    description: "Universal personal loan featuring balanced rule parameters: Age 21–60, Min Income ₹30,000, Max FOIR 50%, and Tenure 1–7 years.",
     minAmount: 50000,
     maxAmount: 2500000,
     minTenureMonths: 12,
@@ -23,7 +23,7 @@ export const SYNTHETIC_PRODUCTS: LoanProductData[] = [
   {
     id: "prod-pl-prime-salaried",
     productCode: "PL_PRIME_SALARIED",
-    name: "TCS Prime Salaried Personal Loan",
+    name: "CrediGuide Prime Personal Loan",
     description: "Tailored for salaried corporate and public-sector professionals with stable income, competitive floating interest rates, and zero prepayment penalties after 12 months.",
     minAmount: 50000,
     maxAmount: 2500000,
@@ -37,7 +37,7 @@ export const SYNTHETIC_PRODUCTS: LoanProductData[] = [
   {
     id: "prod-pl-express-flexi",
     productCode: "PL_EXPRESS_FLEXI",
-    name: "TCS Express Flexi Credit",
+    name: "CrediGuide Express Flexi Credit",
     description: "Rapid preliminary decisioning for urgent capital needs, medical contingencies, or travel. Flexible repayment tenure with digital document upload.",
     minAmount: 25000,
     maxAmount: 500000,
@@ -51,7 +51,7 @@ export const SYNTHETIC_PRODUCTS: LoanProductData[] = [
   {
     id: "prod-pl-professional-growth",
     productCode: "PL_PROFESSIONAL_GROWTH",
-    name: "TCS Professional & Self-Employed Loan",
+    name: "CrediGuide Professional & Business Growth Loan",
     description: "Designed for doctors, chartered accountants, consultants, and business proprietors with at least 2 years of operational track record.",
     minAmount: 100000,
     maxAmount: 4000000,
@@ -65,7 +65,7 @@ export const SYNTHETIC_PRODUCTS: LoanProductData[] = [
 ];
 
 export const SYNTHETIC_RULES: EligibilityRuleData[] = [
-  // Rules for TCS Demonstration Personal Loan (PL_STANDARD)
+  // Rules for CrediGuide Standard Personal Loan (PL_STANDARD)
   {
     id: "rule-demo-age",
     productId: "prod-pl-standard",
@@ -137,7 +137,7 @@ export const SYNTHETIC_RULES: EligibilityRuleData[] = [
     isActive: true,
   },
 
-  // Rules for TCS Prime Salaried Personal Loan
+  // Rules for CrediGuide Prime Personal Loan
   {
     id: "rule-sal-min-age",
     productId: "prod-pl-prime-salaried",
@@ -293,11 +293,11 @@ export const SYNTHETIC_APPLICANTS: ApplicantRecordData[] = [
     id: "app-rohit-sharma",
     firstName: "Rohit",
     lastName: "Sharma",
-    email: "rohit.sharma@tcs-example.com",
+    email: "rohit.sharma@example.com",
     phone: "9876543210",
     age: 28,
     employmentType: "Salaried",
-    employerName: "Tata Consultancy Services Ltd",
+    employerName: "Apex Global Technologies",
     monthlyNetIncome: 60000,
     existingMonthlyEmi: 5000,
     creditScore: 785,

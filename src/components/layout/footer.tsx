@@ -11,11 +11,11 @@ export function Footer() {
               <Landmark className="h-4 w-4" />
             </div>
             <span className="font-bold text-slate-800 dark:text-slate-100 text-sm">
-              FinSmart LoanAssist
+              CrediGuide AI
             </span>
           </div>
           <p className="text-slate-600 dark:text-slate-400 max-w-md leading-relaxed">
-            Prototype developed for the TCS Automated Loan Eligibility Chatbot challenge. Featuring a strict dual-layer architecture where AI powers conversational understanding while a deterministic engine guarantees 100% policy-compliant eligibility calculations.
+            Enterprise-grade lending intelligence platform featuring a strict dual-layer architecture where AI powers conversational understanding while a deterministic engine guarantees 100% policy-compliant eligibility calculations.
           </p>
           <div className="flex flex-wrap gap-4 pt-2">
             <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300">
@@ -54,9 +54,9 @@ export function Footer() {
       </div>
 
       <div className="max-w-7xl mx-auto pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p>© 2026 TCS Loan Eligibility AI Prototype. All rights reserved.</p>
+        <p>© 2026 CrediGuide AI. All rights reserved.</p>
         <p className="text-[11px] text-slate-400">
-          Built for TCS Hackathon • Stage 1 Initial Setup &amp; Architecture
+          Autonomous Lending Intelligence &amp; Policy Governance Platform
         </p>
       </div>
     </footer>

@@ -15,14 +15,14 @@ export function Header() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-900 dark:text-white tracking-tight text-base sm:text-lg">
-                  FinSmart LoanAssist
+                  CrediGuide AI
                 </span>
                 <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
-                  TCS BFSI
+                  Enterprise
                 </Badge>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                Automated Loan Eligibility Assessment Platform
+                Autonomous Lending Intelligence & Policy Governance
               </p>
             </div>
           </Link>

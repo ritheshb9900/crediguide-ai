@@ -29,7 +29,7 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto relative z-10 space-y-8">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-200 border border-blue-400/30">
-              <Sparkles className="h-3.5 w-3.5 text-blue-400" /> TCS BFSI Hackathon Prototype
+              <Sparkles className="h-3.5 w-3.5 text-blue-400" /> CrediGuide AI • Autonomous Lending Intelligence
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" /> Stage 2 Engine Verified (5/5 Tests Passed)

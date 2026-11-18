@@ -493,7 +493,7 @@ export class MockAIService implements IAIService {
       case "requestedAmount":
         return {
           question: "How much personal loan amount are you looking to borrow?",
-          conversationalPrefix: "Welcome to FinSmart LoanAssist!",
+          conversationalPrefix: "Welcome to CrediGuide AI!",
         };
       case "monthlyNetIncome":
         return {

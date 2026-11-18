@@ -1,6 +1,6 @@
-# TCS Automated Loan Eligibility Chatbot (FinSmart LoanAssist)
+# CrediGuide AI — Autonomous Lending Intelligence & Policy Governance
 
-A full-stack, enterprise-grade prototype designed for the **TCS Banking Challenge: Automated Loan Eligibility Chatbot**.
+A full-stack, enterprise-grade loan preliminary eligibility and origination platform featuring transparent, deterministic policy compliance and conversational AI assistance.
 
 ---
 
@@ -53,7 +53,7 @@ A full-stack, enterprise-grade prototype designed for the **TCS Banking Challeng
 ## 📦 Data Models (Prisma Schema)
 
 - **`Applicant`**: Master record containing demographics, employment profile, net income, existing EMIs, and bureau credit score.
-- **`LoanProduct`**: Catalog of credit products (e.g., *TCS Prime Salaried*, *TCS Express Flexi*, *TCS Professional Growth*) with ticket size ranges, tenures, and interest rates.
+- **`LoanProduct`**: Catalog of credit products (e.g., *CrediGuide Standard Personal Loan*, *CrediGuide Prime Personal Loan*, *CrediGuide Express Flexi Credit*, *CrediGuide Professional & Business Growth Loan*) with ticket size ranges, tenures, and interest rates.
 - **`EligibilityRule`**: Deterministic policy rules (e.g., `MIN_AGE`, `MAX_AGE`, `MIN_INCOME`, `MIN_CREDIT_SCORE`, `MAX_FOIR`, `MIN_WORK_EXP`) with evaluation operators and thresholds.
 - **`EligibilityAssessment`**: Persisted assessment run recording requested amount, evaluated eligibility status, calculated EMI, FOIR, risk tier, and deterministic rationale.
 - **`AssessmentCriterion`**: Itemized audit log of each individual rule evaluated (expected vs. actual value, pass/fail status, and explanation).
@@ -70,7 +70,7 @@ A full-stack, enterprise-grade prototype designed for the **TCS Banking Challeng
 ### 2. Installation
 ```bash
 # Clone or navigate to the repository
-cd TCS_Loan_Eligibility_AI
+cd crediguide-ai
 
 # Install dependencies
 npm install
@@ -82,7 +82,7 @@ Copy `.env.example` to `.env`:
 cp .env.example .env
 ```
 Configure your environment variables in `.env`:
-- `DATABASE_URL`: PostgreSQL connection string (e.g., `postgresql://postgres:postgres@localhost:5432/tcs_loan_db?schema=public`)
+- `DATABASE_URL`: PostgreSQL connection string (e.g., `postgresql://postgres:postgres@localhost:5432/crediguide_db?schema=public`)
 - `GEMINI_API_KEY`: Google Gemini API key from [Google AI Studio](https://aistudio.google.com/) (required for Stage 3)
 
 *(Note: If `DATABASE_URL` is omitted or points to an offline database during initial inspection, the system automatically falls back to the high-fidelity in-memory synthetic provider so the app remains fully functional).*
@@ -134,7 +134,7 @@ npm run build
 
 ---
 
-## 📅 Hackathon Implementation Roadmap
+## 📅 Implementation Roadmap
 
 - [x] **Stage 1**:
   - Next.js 16 + React 19 + TypeScript + Tailwind CSS setup.

@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FinSmart LoanAssist | TCS Automated Loan Eligibility Chatbot",
+  title: "CrediGuide AI | Autonomous Lending Intelligence & Policy Governance",
   description:
     "AI-assisted Personal Loan Preliminary Eligibility Assistant with deterministic calculation engine, PostgreSQL persistence, and enterprise banking architecture.",
 };

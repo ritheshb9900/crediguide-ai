@@ -5,7 +5,7 @@ import { assessLoanEligibility } from "../src/services/eligibility";
 
 async function runStage3ATests() {
   console.log("================================================================================");
-  console.log("🤖 TCS Automated Loan Eligibility Chatbot - Stage 3A Test Suite");
+  console.log("🤖 CrediGuide AI - Conversational Extraction Test Suite");
   console.log("================================================================================\n");
 
   const aiService = getAIService();
