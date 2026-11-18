@@ -7,44 +7,215 @@ datasource db {
   provider = "postgresql"
 }
 
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum UserRole {
+  LOAN_APPLICANT
+  BANK_OFFICER
+  BANK_ADMIN
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  DOCUMENTS_REQUIRED
+  CONDITIONALLY_ELIGIBLE
+  RECOMMENDED
+  APPROVED
+  REJECTED
+  DISBURSED
+  WITHDRAWN
+}
+
+enum DocumentCategory {
+  IDENTITY_PROOF
+  ADDRESS_PROOF
+  INCOME_PROOF
+  BANK_STATEMENT
+  EMPLOYMENT_ID
+  COLLATERAL_DEED
+  TAX_RETURN
+  OTHER
+}
+
+enum DocumentVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum ReviewStage {
+  INITIAL_SCRUTINY
+  DOCUMENT_VERIFICATION
+  CREDIT_APPRAISAL
+  RISK_ASSESSMENT
+  FINAL_APPROVAL
+}
+
+enum ReviewRecommendation {
+  RECOMMEND_APPROVAL
+  RECOMMEND_REJECTION
+  REQUEST_MORE_INFO
+  ESCALATE_TO_COMMITTEE
+}
+
+enum ReviewDecision {
+  APPROVED
+  REJECTED
+  DEFERRED
+  PENDING
+}
+
+// =============================================================================
+// 1. IDENTITY, AUTHENTICATION & SECURITY (5 Models)
+// =============================================================================
+
+model User {
+  id                  String          @id @default(uuid())
+  email               String          @unique
+  passwordHash        String
+  role                UserRole        @default(LOAN_APPLICANT)
+  firstName           String
+  lastName            String
+  phone               String?
+  isActive            Boolean         @default(true)
+  isEmailVerified     Boolean         @default(false)
+  failedLoginAttempts Int             @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  // 1-to-1 Profile associations
+  applicantProfile    Applicant?
+  officerProfile      OfficerProfile?
+
+  // Relations
+  assignedApplications LoanApplication[]          @relation("OfficerAssignedApplications")
+  conductedReviews     ApplicationReview[]        @relation("OfficerReviews")
+  verifiedDocuments    UploadedDocument[]         @relation("OfficerVerifiedDocuments")
+  statusChanges        ApplicationStatusHistory[] @relation("StatusChangeActor")
+  auditLogs            AuditLog[]                 @relation("UserAuditLogs")
+  sessions             UserSession[]
+  passwordResetTokens  PasswordResetToken[]
+  emailTokens          EmailVerificationToken[]
+
+  @@index([role, isActive])
+  @@map("users")
+}
+
+model OfficerProfile {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  employeeCode        String   @unique
+  department          String   // "Retail Lending", "Underwriting", "Risk Management"
+  branchCode          String?
+  designation         String   // "Credit Officer", "Senior Underwriter", "Branch Manager"
+  approvalLimitAmount Decimal  @default(500000.00) @db.Decimal(14, 2)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([branchCode])
+  @@map("officer_profiles")
+}
+
+model UserSession {
+  id           String    @id @default(uuid())
+  userId       String
+  tokenHash    String    @unique // SHA-256 hash of session secret (never plaintext)
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime  @default(now())
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique // SHA-256 hash of reset token
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+// =============================================================================
+// 2. CORE BORROWER & ENGINE MODELS (6 Models - Preserved & Refined)
+// =============================================================================
+
 model Applicant {
   id                  String                 @id @default(uuid())
+  userId              String?                @unique // 1-to-1 link to User (null for guest chatbot interactions)
   firstName           String
   lastName            String
   email               String                 @unique
   phone               String?
   dateOfBirth         DateTime?
   age                 Int?
-  employmentType      String                 // e.g. SALARIED, SELF_EMPLOYED, BUSINESS
+  employmentType      String                 // SALARIED, SELF_EMPLOYED, etc.
   employerName        String?
-  monthlyNetIncome    Float
-  existingMonthlyEmi  Float                  @default(0)
+  monthlyNetIncome    Decimal                @db.Decimal(14, 2)
+  existingMonthlyEmi  Decimal                @default(0.00) @db.Decimal(14, 2)
   creditScore         Int?
   city                String?
   state               String?
   pincode             String?
-  residenceType       String?                // e.g. OWNED, RENTED, PARENTAL
+  residenceType       String?                // OWNED, RENTED, PARENTAL
   workExperienceYears Float?
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
 
+  user                User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   assessments         EligibilityAssessment[]
+  applications        LoanApplication[]
 
+  @@index([userId])
   @@map("applicants")
 }
 
 model LoanProduct {
   id                      String                 @id @default(uuid())
-  productCode             String                 @unique // e.g. PL_STANDARD, PL_PREMIUM, PL_EXPRESS
+  productCode             String                 @unique // PL_STANDARD, PL_PRIME_SALARIED, etc.
   name                    String
   description             String
-  minAmount               Float
-  maxAmount               Float
+  minAmount               Decimal                @db.Decimal(14, 2)
+  maxAmount               Decimal                @db.Decimal(14, 2)
   minTenureMonths         Int
   maxTenureMonths         Int
-  minInterestRate         Float
-  maxInterestRate         Float
-  processingFeePercentage Float                  @default(1.0)
+  minInterestRate         Decimal                @db.Decimal(5, 2)
+  maxInterestRate         Decimal                @db.Decimal(5, 2)
+  processingFeePercentage Decimal                @default(1.00) @db.Decimal(5, 2)
   isActive                Boolean                @default(true)
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
@@ -52,19 +223,21 @@ model LoanProduct {
   rules                   EligibilityRule[]
   documentRequirements    DocumentRequirement[]
   assessments             EligibilityAssessment[]
+  applications            LoanApplication[]
 
+  @@index([isActive])
   @@map("loan_products")
 }
 
 model EligibilityRule {
   id             String                @id @default(uuid())
   productId      String
-  ruleCode       String                // e.g. MIN_AGE, MAX_AGE, MIN_INCOME, MIN_CREDIT_SCORE, MAX_FOIR, MIN_WORK_EXP
+  ruleCode       String                // AGE_RANGE, MIN_INCOME, MAX_FOIR, TENURE_RANGE, EMPLOYMENT_TYPE, MIN_CREDIT_SCORE
   name           String
   description    String
-  category       String                // AGE, INCOME, CREDIT_SCORE, FOIR, EMPLOYMENT
+  category       String                // AGE, INCOME, CREDIT_SCORE, FOIR, EMPLOYMENT, TENURE
   operator       String                // GTE, LTE, EQ, IN, BETWEEN
-  thresholdValue String                // Evaluated by deterministic rule engine
+  thresholdValue String
   weight         Int                   @default(1)
   isMandatory    Boolean               @default(true)
   errorMessage   String
@@ -75,6 +248,8 @@ model EligibilityRule {
   product        LoanProduct           @relation(fields: [productId], references: [id], onDelete: Cascade)
   criteria       AssessmentCriterion[]
 
+  @@index([productId])
+  @@index([ruleCode])
   @@map("eligibility_rules")
 }
 
@@ -82,16 +257,16 @@ model EligibilityAssessment {
   id                     String                @id @default(uuid())
   applicantId            String?
   productId              String
-  requestedAmount        Float
+  requestedAmount        Decimal               @db.Decimal(14, 2)
   requestedTenureMonths  Int
-  status                 String                // PRELIMINARY_ELIGIBLE, CONDITIONALLY_ELIGIBLE, INELIGIBLE, INCOMPLETE_DATA
-  eligibleAmount         Float?
-  indicativeInterestRate Float?
-  indicativeEmi          Float?
-  foir                   Float?                // Fixed Obligation to Income Ratio
-  confidenceScore        Float?                // Engine confidence (0.0 - 1.0)
+  status                 String                // ELIGIBLE, CONDITIONAL, NOT_ELIGIBLE
+  eligibleAmount         Decimal?              @db.Decimal(14, 2)
+  indicativeInterestRate Decimal?              @db.Decimal(5, 2)
+  indicativeEmi          Decimal?              @db.Decimal(14, 2)
+  foir                   Decimal?              @db.Decimal(5, 2)
+  confidenceScore        Float?
   riskTier               String?               // LOW, MODERATE, HIGH
-  summary                String                // Deterministic preliminary rationale
+  summary                String
   disclaimer             String                @default("This is a preliminary, indicative loan eligibility assessment and does NOT constitute a formal loan approval, commitment, or credit offer.")
   source                 String                @default("CHATBOT") // CHATBOT, PORTAL, CSV_IMPORT, EXTERNAL_API
   createdAt              DateTime              @default(now())
@@ -99,8 +274,12 @@ model EligibilityAssessment {
 
   applicant              Applicant?            @relation(fields: [applicantId], references: [id], onDelete: SetNull)
   product                LoanProduct           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  application            LoanApplication?
   criteria               AssessmentCriterion[]
 
+  @@index([applicantId])
+  @@index([productId])
+  @@index([status])
   @@map("eligibility_assessments")
 }
 
@@ -120,21 +299,159 @@ model AssessmentCriterion {
   assessment        EligibilityAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   rule              EligibilityRule?      @relation(fields: [ruleId], references: [id], onDelete: SetNull)
 
+  @@index([assessmentId])
+  @@index([ruleId])
   @@map("assessment_criteria")
 }
 
 model DocumentRequirement {
-  id             String      @id @default(uuid())
-  productId      String
-  documentType   String      // IDENTITY_PROOF, INCOME_PROOF, BANK_STATEMENT, ADDRESS_PROOF, EMPLOYMENT_ID
-  name           String
-  description    String
-  isMandatory    Boolean     @default(true)
-  employmentType String?     @default("ALL") // ALL, SALARIED, SELF_EMPLOYED
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id                String             @id @default(uuid())
+  productId         String
+  documentType      String             // IDENTITY_PROOF, INCOME_PROOF, BANK_STATEMENT, ADDRESS_PROOF, EMPLOYMENT_ID
+  name              String
+  description       String
+  isMandatory       Boolean            @default(true)
+  employmentType    String?            @default("ALL") // ALL, SALARIED, SELF_EMPLOYED
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
-  product        LoanProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product           LoanProduct        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  uploadedDocuments UploadedDocument[]
 
+  @@index([productId])
   @@map("document_requirements")
+}
+
+// =============================================================================
+// 3. APPLICATION LIFECYCLE & OPERATIONS (3 Models)
+// =============================================================================
+
+model LoanApplication {
+  id                    String            @id @default(uuid())
+  applicationNumber     String            @unique // e.g. "CG-APP-202611-0001"
+  applicantId           String
+  productId             String
+  assessmentId          String?           @unique // Optional link to initial chatbot assessment
+  assignedOfficerId     String?
+  requestedAmount       Decimal           @db.Decimal(14, 2)
+  requestedTenureMonths Int
+  purpose               String?           // "Home Renovation", "Debt Consolidation", "Medical"
+  status                ApplicationStatus @default(DRAFT)
+  submissionDate        DateTime?
+  approvedAmount        Decimal?          @db.Decimal(14, 2)
+  approvedInterestRate  Decimal?          @db.Decimal(5, 2)
+  approvedTenureMonths  Int?
+  decisionDate          DateTime?
+  rejectionReason       String?
+  isDeleted             Boolean           @default(false)
+  deletedAt             DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  applicant             Applicant         @relation(fields: [applicantId], references: [id], onDelete: Restrict)
+  product               LoanProduct       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  assessment            EligibilityAssessment? @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  assignedOfficer       User?             @relation("OfficerAssignedApplications", fields: [assignedOfficerId], references: [id], onDelete: SetNull)
+  documents             UploadedDocument[]
+  reviews               ApplicationReview[]
+  statusHistory         ApplicationStatusHistory[]
+
+  @@index([applicantId, status])
+  @@index([assignedOfficerId, status])
+  @@index([status])
+  @@index([createdAt])
+  @@map("loan_applications")
+}
+
+model UploadedDocument {
+  id                 String                     @id @default(uuid())
+  applicationId      String                     // Single relational anchor guarantees applicant ownership
+  requirementId      String?
+  category           DocumentCategory           @default(OTHER)
+  storageKey         String                     // Private object key (NEVER public URL)
+  originalFileName   String
+  mimeType           String                     // "application/pdf", "image/png", etc.
+  fileSizeBytes      Int
+  fileHash           String?                    // SHA-256 integrity checksum
+  verificationStatus DocumentVerificationStatus @default(PENDING)
+  verifiedByUserId   String?
+  rejectionReason    String?
+  verifiedAt         DateTime?
+  deletedAt          DateTime?                  // Soft-delete / retention support
+  uploadedAt         DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  application        LoanApplication            @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  requirement        DocumentRequirement?       @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  verifiedBy         User?                      @relation("OfficerVerifiedDocuments", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, verificationStatus])
+  @@index([requirementId])
+  @@map("uploaded_documents")
+}
+
+model ApplicationReview {
+  id                  String               @id @default(uuid())
+  applicationId       String
+  officerId           String
+  stage               ReviewStage          @default(INITIAL_SCRUTINY)
+  recommendation      ReviewRecommendation
+  decision            ReviewDecision       @default(PENDING)
+  recommendedAmount   Decimal?             @db.Decimal(14, 2)
+  recommendedRate     Decimal?             @db.Decimal(5, 2)
+  recommendedTenure   Int?
+  reviewNotes         String               // Internal underwriter notes
+  conditions          String?              // Sanction stipulations / covenants
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  application         LoanApplication      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  officer             User                 @relation("OfficerReviews", fields: [officerId], references: [id], onDelete: Restrict)
+
+  @@index([applicationId, stage])
+  @@index([officerId])
+  @@map("application_reviews")
+}
+
+// =============================================================================
+// 4. AUDIT & STATUS HISTORY (2 Models)
+// =============================================================================
+
+model ApplicationStatusHistory {
+  id             String            @id @default(uuid())
+  applicationId  String
+  fromStatus     ApplicationStatus
+  toStatus       ApplicationStatus
+  changedById    String?
+  changeReason   String?
+  metadata       Json?             // Contextual snapshot
+  createdAt      DateTime          @default(now())
+
+  application    LoanApplication   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  changedBy      User?             @relation("StatusChangeActor", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, createdAt])
+  @@map("application_status_history")
+}
+
+model AuditLog {
+  id             String    @id @default(uuid())
+  actorId        String?
+  actorEmail     String?
+  actorRole      String?
+  action         String    // e.g. "USER_LOGIN", "APPLICATION_SUBMITTED", "DOCUMENT_VERIFIED"
+  entityType     String    // "USER", "APPLICATION", "DOCUMENT", "ASSESSMENT", "REVIEW"
+  entityId       String
+  ipAddress      String?
+  userAgent      String?
+  details        Json?     // Sanitized metadata (NO passwords or PII secrets)
+  timestamp      DateTime  @default(now())
+
+  actor          User?     @relation("UserAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, timestamp])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([timestamp])
+  @@map("audit_logs")
 }
