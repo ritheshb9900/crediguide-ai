@@ -18,7 +18,8 @@
     "test:financial": "tsx tests/financial.test.ts",
     "test:seed": "tsx tests/seed-data.test.ts",
     "test:auth-infra": "tsx tests/auth-infra.test.ts",
-    "test:auth-api": "tsx tests/auth-register-login.test.ts"
+    "test:auth-api": "tsx tests/auth-register-login.test.ts",
+    "test:auth-session": "tsx tests/auth-session.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -64,6 +64,35 @@ export function getExpiredSessionCookieConfig(): SessionCookieConfig {
 }
 
 /**
+ * Extracts the raw session token from a standard Request's Cookie header.
+ *
+ * @param request - Standard Web Request or NextRequest.
+ * @returns Raw session token string if present and valid, otherwise null.
+ */
+export function extractSessionTokenFromRequest(request: Request): string | null {
+  const cookieHeader = request.headers.get("cookie");
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const cookies = cookieHeader.split(";");
+  for (const cookie of cookies) {
+    const trimmed = cookie.trim();
+    const separatorIndex = trimmed.indexOf("=");
+    if (separatorIndex === -1) continue;
+
+    const name = trimmed.substring(0, separatorIndex).trim();
+    const value = trimmed.substring(separatorIndex + 1).trim();
+
+    if (name === SESSION_COOKIE_NAME) {
+      return value && value.length > 0 ? value : null;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Creates a new database-backed session in PostgreSQL.
  *
  * SECURITY INVARIANT:
