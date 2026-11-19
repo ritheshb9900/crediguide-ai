@@ -19,7 +19,9 @@
     "test:seed": "tsx tests/seed-data.test.ts",
     "test:auth-infra": "tsx tests/auth-infra.test.ts",
     "test:auth-api": "tsx tests/auth-register-login.test.ts",
-    "test:auth-session": "tsx tests/auth-session.test.ts"
+    "test:auth-session": "tsx tests/auth-session.test.ts",
+    "test:auth-rbac": "tsx tests/auth-rbac.test.ts",
+    "auth:bootstrap": "tsx scripts/auth-bootstrap.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

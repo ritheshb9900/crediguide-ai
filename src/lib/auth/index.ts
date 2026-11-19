@@ -5,3 +5,4 @@ export * from "./rate-limiter";
 export * from "./email-provider";
 export * from "./session";
 export * from "./validation";
+export * from "./rbac";
