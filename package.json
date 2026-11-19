@@ -21,6 +21,7 @@
     "test:auth-api": "tsx tests/auth-register-login.test.ts",
     "test:auth-session": "tsx tests/auth-session.test.ts",
     "test:auth-rbac": "tsx tests/auth-rbac.test.ts",
+    "test:auth-reset": "tsx tests/auth-reset-verification.test.ts",
     "auth:bootstrap": "tsx scripts/auth-bootstrap.ts"
   },
   "prisma": {

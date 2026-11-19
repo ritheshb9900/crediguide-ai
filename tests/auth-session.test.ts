@@ -526,4 +526,6 @@ runSessionTests()
   })
   .finally(async () => {
     await cleanupTestData();
+    await prisma.$disconnect();
+    process.exit(0);
   });

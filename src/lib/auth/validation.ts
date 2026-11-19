@@ -121,6 +121,17 @@ export const VerifyEmailInputSchema = z
 export type VerifyEmailInput = z.infer<typeof VerifyEmailInputSchema>;
 
 /**
+ * Resend Email Verification Input Schema.
+ */
+export const ResendVerificationInputSchema = z
+  .object({
+    email: NormalizedEmailSchema,
+  })
+  .strict();
+
+export type ResendVerificationInput = z.infer<typeof ResendVerificationInputSchema>;
+
+/**
  * Bank Officer Provisioning Input Schema (Admin only).
  */
 export const OfficerProvisioningInputSchema = z

@@ -807,6 +807,7 @@ async function runRBACTestSuite() {
   } finally {
     // Clean up all test users and test entities
     await cleanupTestData();
+    await prisma.$disconnect();
   }
 
   console.log("\n================================================================================");
@@ -816,6 +817,7 @@ async function runRBACTestSuite() {
   if (failedCount > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 void runRBACTestSuite();

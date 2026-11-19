@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { generateSecureToken, hashToken } from "./tokens";
 import {
@@ -283,18 +285,165 @@ export async function revokeDatabaseSession(
 }
 
 /**
+ * Fallback IP address returned when forwarding headers are missing,
+ * untrusted, or syntactically invalid.
+ *
+ * SECURITY INVARIANT:
+ * Direct, untrusted client connections collapse to this deterministic safe IP.
+ * This guarantees an attacker cannot rotate client-supplied forwarding headers
+ * to bypass IP-based rate limiting when running without a trusted reverse proxy.
+ */
+export const SAFE_FALLBACK_CLIENT_IP = "127.0.0.1";
+
+/**
+ * Determines whether the current deployment environment is explicitly configured
+ * to trust client IP forwarding headers (e.g. running behind an enterprise reverse proxy,
+ * ingress controller, or load balancer that overwrites/sanitizes untrusted headers).
+ *
+ * Configuration:
+ * - `TRUST_PROXY="true"` | `"1"`: Forwarding headers are parsed according to proxy policy.
+ * - Otherwise: Forwarding headers are treated as untrusted user input and completely ignored.
+ */
+export function isProxyTrustEnabled(): boolean {
+  const envVal = process.env.TRUST_PROXY?.trim().toLowerCase();
+  return envVal === "true" || envVal === "1";
+}
+
+/**
+ * Strictly parses and validates the configured number of trusted reverse proxy hops.
+ *
+ * VALIDATION RULES:
+ * - When `TRUSTED_PROXY_HOPS` is unset / undefined, defaults strictly to 1 (standard single reverse proxy).
+ * - When set, accepts ONLY a complete positive integer string (matching `/^[1-9]\d*$/`)
+ *   within safe integer bounds (`Number.isSafeInteger()`).
+ * - Strictly rejects empty strings, whitespace-only strings, decimals ("1.5"),
+ *   alphabetic suffixes ("2abc"), zero ("0"), negative numbers ("-1"), signs ("+1"),
+ *   and unsafe integers.
+ * - If the configuration is present but malformed, returns `null` (fail-closed signal)
+ *   so callers do not silently guess or mask configuration errors.
+ *
+ * @returns Positive integer hop count, or `null` if explicitly configured but invalid.
+ */
+export function getTrustedProxyHops(): number | null {
+  const raw = process.env.TRUSTED_PROXY_HOPS;
+  if (raw === undefined) {
+    return 1;
+  }
+
+  const trimmed = raw.trim();
+  if (!/^[1-9]\d*$/.test(trimmed)) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    return null;
+  }
+
+  return parsed;
+}
+
+/**
+ * Safely extracts and validates the client IP address from an incoming HTTP request.
+ *
+ * SECURITY INVARIANTS:
+ * 1. Strict Trust Boundary:
+ *    Forwarding headers (`x-forwarded-for`, `x-real-ip`) are ONLY inspected if
+ *    `isProxyTrustEnabled()` returns true (explicitly configured via `TRUST_PROXY=true`).
+ * 2. Fail-Closed Configuration:
+ *    If `getTrustedProxyHops()` returns `null` (malformed hop configuration), the request
+ *    fails closed to `SAFE_FALLBACK_CLIENT_IP` without parsing headers.
+ * 3. Header Spoofing Defense:
+ *    When proxy trust is disabled, arbitrary client-supplied headers are completely ignored,
+ *    returning `SAFE_FALLBACK_CLIENT_IP`. This prevents attackers from bypassing IP rate limiters
+ *    via header rotation.
+ * 4. Forwarding Chain Integrity:
+ *    Parses the complete `x-forwarded-for` chain without silently discarding empty entries.
+ *    If ANY entry is empty, whitespace, or fails Node.js built-in `isIP()` validation,
+ *    the entire chain is rejected as tampered/malformed and falls back to `SAFE_FALLBACK_CLIENT_IP`.
+ * 5. Chain Length Verification:
+ *    If the valid chain length is less than the configured trusted hops (`ips.length < hops`),
+ *    the request falls back to `SAFE_FALLBACK_CLIENT_IP`.
+ * 6. Forwarding Chain Inspection (Right-to-Left):
+ *    The trusted client IP is extracted exactly `hops` positions from the right (`ips.length - hops`),
+ *    guaranteeing that client-prepended entries on the left cannot masquerade as the trusted hop.
+ * 7. Gated X-Real-IP:
+ *    `x-real-ip` is inspected ONLY when proxy trust is enabled and `x-forwarded-for` is absent.
+ * 8. Zero Logging of IP Addresses:
+ *    Client IP addresses are never printed to stdout/stderr.
+ *
+ * @param request - Web Request or NextRequest
+ * @returns Validated IPv4 or IPv6 string, or `SAFE_FALLBACK_CLIENT_IP` ("127.0.0.1")
+ */
+export function extractClientIp(request: Request): string {
+  // If proxy trust is not explicitly enabled, do NOT trust any forwarding headers.
+  if (!isProxyTrustEnabled()) {
+    return SAFE_FALLBACK_CLIENT_IP;
+  }
+
+  // Strict hop validation: if configuration is malformed, fail closed
+  const hops = getTrustedProxyHops();
+  if (hops === null) {
+    return SAFE_FALLBACK_CLIENT_IP;
+  }
+
+  // 1. Inspect X-Forwarded-For if present
+  const forwardedHeader = request.headers.get("x-forwarded-for");
+  if (forwardedHeader !== null) {
+    const rawEntries = forwardedHeader.split(",");
+    const ips: string[] = [];
+
+    for (const raw of rawEntries) {
+      const trimmed = raw.trim();
+      // If any entry is empty or not a syntactically valid IP, reject entire chain
+      if (trimmed.length === 0 || isIP(trimmed) === 0) {
+        return SAFE_FALLBACK_CLIENT_IP;
+      }
+      ips.push(trimmed);
+    }
+
+    // Reject insufficient chain length
+    if (ips.length < hops) {
+      return SAFE_FALLBACK_CLIENT_IP;
+    }
+
+    // Extract trusted IP using right-to-left hop policy
+    return ips[ips.length - hops]!;
+  }
+
+  // 2. Check X-Real-IP if set by trusted single reverse proxy (when X-Forwarded-For is absent)
+  const realIpHeader = request.headers.get("x-real-ip");
+  if (realIpHeader !== null) {
+    const trimmedRealIp = realIpHeader.trim();
+    if (trimmedRealIp.length > 0 && isIP(trimmedRealIp) !== 0) {
+      return trimmedRealIp;
+    }
+  }
+
+  return SAFE_FALLBACK_CLIENT_IP;
+}
+
+/**
  * Revokes all active sessions for a specific user.
  * Triggered on password change, password reset, or account deactivation.
  *
+ * Supports an optional Prisma TransactionClient to execute atomically
+ * within an existing interactive database transaction.
+ *
  * @param userId - Master User ID.
+ * @param tx - Optional Prisma transaction client.
  * @returns Number of sessions revoked.
  */
-export async function revokeAllUserSessions(userId: string): Promise<number> {
+export async function revokeAllUserSessions(
+  userId: string,
+  tx?: Prisma.TransactionClient
+): Promise<number> {
   if (!userId) {
     return 0;
   }
 
-  const result = await prisma.userSession.updateMany({
+  const client = tx ?? prisma;
+  const result = await client.userSession.updateMany({
     where: {
       userId,
       revokedAt: null,
