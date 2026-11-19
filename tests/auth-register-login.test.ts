@@ -9,6 +9,7 @@ import { resetRateLimiterInstance } from "../src/lib/auth/rate-limiter";
 const TEST_DOMAIN = "cg-test-domain.org";
 const TEST_EMAIL = `test.borrower.subphaseb@${TEST_DOMAIN}`;
 const TEST_PASSWORD = "StrongPassword@2026!";
+const TEST_ORIGIN = "http://localhost:3000";
 
 let passedCount = 0;
 let failedCount = 0;
@@ -73,7 +74,7 @@ async function runRegisterLoginTests() {
   await test("Reject registration using @example.com reserved demonstration domain", async () => {
     const req = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         firstName: "Test",
         lastName: "User",
@@ -93,7 +94,7 @@ async function runRegisterLoginTests() {
   await test("Reject registration matching an existing synthetic applicant (demo-app-rohit-sharma)", async () => {
     const req = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         firstName: "Rohit",
         lastName: "Sharma",
@@ -119,7 +120,7 @@ async function runRegisterLoginTests() {
   await test("Reject registration payloads attempting role escalation (BANK_ADMIN / BANK_OFFICER)", async () => {
     const req = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         firstName: "Malicious",
         lastName: "Actor",
@@ -145,7 +146,7 @@ async function runRegisterLoginTests() {
 
     const req = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         firstName: "Vikram",
         lastName: "Mehta",
@@ -202,7 +203,7 @@ async function runRegisterLoginTests() {
   await test("Reject duplicate registration with identical email (HTTP 409 Conflict)", async () => {
     const req = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         firstName: "Vikram",
         lastName: "Mehta",
@@ -227,6 +228,7 @@ async function runRegisterLoginTests() {
       headers: {
         "Content-Type": "application/json",
         "user-agent": "AutomatedTestAgent/1.0",
+        origin: TEST_ORIGIN,
       },
       body: JSON.stringify({
         email: TEST_EMAIL,
@@ -263,7 +265,7 @@ async function runRegisterLoginTests() {
   await test("Return generic 401 error for incorrect password and increment failed attempts", async () => {
     const req = new Request("http://localhost:3000/api/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         email: TEST_EMAIL,
         password: "IncorrectPassword999!",
@@ -288,7 +290,7 @@ async function runRegisterLoginTests() {
   await test("Return identical generic 401 error for nonexistent user (anti-enumeration)", async () => {
     const req = new Request("http://localhost:3000/api/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         email: `nonexistent.${Date.now()}@${TEST_DOMAIN}`,
         password: "SomePassword123!",
@@ -313,7 +315,7 @@ async function runRegisterLoginTests() {
 
     const req = new Request("http://localhost:3000/api/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         email: TEST_EMAIL,
         password: TEST_PASSWORD,
@@ -342,7 +344,7 @@ async function runRegisterLoginTests() {
     for (let i = 2; i <= 5; i++) {
       const req = new Request("http://localhost:3000/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({
           email: TEST_EMAIL,
           password: `BadAttempt${i}!`,
@@ -364,7 +366,7 @@ async function runRegisterLoginTests() {
     // Attempting login with CORRECT password while locked must be REJECTED with generic 401
     const lockedReq = new Request("http://localhost:3000/api/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         email: TEST_EMAIL,
         password: TEST_PASSWORD,
@@ -387,7 +389,7 @@ async function runRegisterLoginTests() {
     // Logging in with correct password now succeeds
     const req = new Request("http://localhost:3000/api/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         email: TEST_EMAIL,
         password: TEST_PASSWORD,
@@ -414,7 +416,7 @@ async function runRegisterLoginTests() {
       loginHandler(
         new Request("http://localhost:3000/api/auth/login", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
           body: JSON.stringify({
             email: TEST_EMAIL,
             password: `ConcurrentFail${num}!`,
@@ -441,7 +443,7 @@ async function runRegisterLoginTests() {
     const BURST_EMAIL = `test.burst.subphaseb@${TEST_DOMAIN}`;
     const regReq = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         firstName: "Burst",
         lastName: "Tester",
@@ -469,6 +471,7 @@ async function runRegisterLoginTests() {
           headers: {
             "Content-Type": "application/json",
             "x-forwarded-for": "192.168.100.1",
+            origin: TEST_ORIGIN,
           },
           body: JSON.stringify({
             email: BURST_EMAIL,
@@ -508,6 +511,7 @@ async function runRegisterLoginTests() {
         headers: {
           "Content-Type": "application/json",
           "x-forwarded-for": "192.168.100.2",
+          origin: TEST_ORIGIN,
         },
         body: JSON.stringify({
           email: BURST_EMAIL,
@@ -542,16 +546,18 @@ async function runRegisterLoginTests() {
   await test("Production login fails closed (503) when shared rate-limiter store is unconfigured", async () => {
     const origEnv = process.env.NODE_ENV;
     const origRedis = process.env.REDIS_URL;
+    const origAppUrl = process.env.APP_URL;
     const envObj = process.env as Record<string, string | undefined>;
     try {
       envObj.NODE_ENV = "production";
+      envObj.APP_URL = TEST_ORIGIN;
       delete process.env.REDIS_URL;
       delete process.env.RATE_LIMIT_STORE;
       resetRateLimiterInstance();
 
       const req = new Request("http://localhost:3000/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({
           email: TEST_EMAIL,
           password: TEST_PASSWORD,
@@ -565,6 +571,8 @@ async function runRegisterLoginTests() {
       assert.strictEqual(data.error, "SERVICE_UNAVAILABLE");
     } finally {
       envObj.NODE_ENV = origEnv;
+      if (origAppUrl !== undefined) process.env.APP_URL = origAppUrl;
+      else delete process.env.APP_URL;
       if (origRedis) process.env.REDIS_URL = origRedis;
       resetRateLimiterInstance();
     }

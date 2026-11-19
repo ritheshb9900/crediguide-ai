@@ -16,6 +16,7 @@ const TEST_DOMAIN = "cg-test-domain.org";
 const USER_A_EMAIL = `test.session.user.a@${TEST_DOMAIN}`;
 const USER_B_EMAIL = `test.session.user.b@${TEST_DOMAIN}`;
 const TEST_PASSWORD = "StrongSessionPassword@2026!";
+const TEST_ORIGIN = "http://localhost:3000";
 
 let passedCount = 0;
 let failedCount = 0;
@@ -97,7 +98,7 @@ async function runSessionTests() {
     resetRateLimiterInstance();
     const regReq = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         firstName: "Session",
         lastName: "Alpha",
@@ -115,6 +116,7 @@ async function runSessionTests() {
       headers: {
         "Content-Type": "application/json",
         "x-forwarded-for": "10.10.1.1",
+        origin: TEST_ORIGIN,
       },
       body: JSON.stringify({
         email: USER_A_EMAIL,
@@ -138,7 +140,7 @@ async function runSessionTests() {
     resetRateLimiterInstance();
     const regReq = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         firstName: "Session",
         lastName: "Beta",
@@ -156,6 +158,7 @@ async function runSessionTests() {
       headers: {
         "Content-Type": "application/json",
         "x-forwarded-for": "10.10.1.2",
+        origin: TEST_ORIGIN,
       },
       body: JSON.stringify({
         email: USER_B_EMAIL,
@@ -306,6 +309,7 @@ async function runSessionTests() {
       method: "POST",
       headers: {
         cookie: `${SESSION_COOKIE_NAME}=${userARawToken}`,
+        origin: TEST_ORIGIN,
       },
     });
 
@@ -348,6 +352,7 @@ async function runSessionTests() {
         method: "POST",
         headers: {
           cookie: `${SESSION_COOKIE_NAME}=${userARawToken}`,
+          origin: TEST_ORIGIN,
         },
       });
 
@@ -369,6 +374,7 @@ async function runSessionTests() {
       method: "POST",
       headers: {
         cookie: `${SESSION_COOKIE_NAME}=${userARawToken}`,
+        origin: TEST_ORIGIN,
       },
     });
 
@@ -388,6 +394,9 @@ async function runSessionTests() {
   await test("POST /logout without cookie succeeds safely and attaches cookie clearing header", async () => {
     const req = new Request("http://localhost:3000/api/auth/logout", {
       method: "POST",
+      headers: {
+        origin: TEST_ORIGIN,
+      },
     });
 
     const res = await logoutHandler(req);
@@ -407,6 +416,7 @@ async function runSessionTests() {
       method: "POST",
       headers: {
         cookie: `${SESSION_COOKIE_NAME}=malformed-random-value-12345`,
+        origin: TEST_ORIGIN,
       },
     });
 

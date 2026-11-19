@@ -6,8 +6,14 @@ import { RegisterApplicantInputSchema } from "@/lib/auth/validation";
 import { hashPassword } from "@/lib/auth/password";
 import { generateSecureToken, hashToken } from "@/lib/auth/tokens";
 import { getEmailProvider } from "@/lib/auth/email-provider";
+import { requireCsrf } from "@/lib/auth/csrf";
 
 export async function POST(request: Request) {
+  const csrfError = requireCsrf(request);
+  if (csrfError) {
+    return csrfError;
+  }
+
   try {
     let body: unknown;
     try {

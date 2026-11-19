@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/rbac";
 import { hashPassword } from "@/lib/auth/password";
 import { OfficerProvisioningInputSchema } from "@/lib/auth/validation";
+import { requireCsrf } from "@/lib/auth/csrf";
 
 /**
  * POST /api/admin/officers
@@ -23,6 +24,11 @@ import { OfficerProvisioningInputSchema } from "@/lib/auth/validation";
  * 7. Zero Credential Leakage: Passwords and hashes are never returned in the API response.
  */
 export async function POST(request: Request) {
+  const csrfError = requireCsrf(request);
+  if (csrfError) {
+    return csrfError;
+  }
+
   try {
     // 1. Enforce strict BANK_ADMIN role authorization
     const auth = await requireRole(request, UserRole.BANK_ADMIN);

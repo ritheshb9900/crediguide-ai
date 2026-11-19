@@ -4,6 +4,7 @@ import {
   revokeDatabaseSession,
   getExpiredSessionCookieConfig,
 } from "@/lib/auth/session";
+import { requireCsrf } from "@/lib/auth/csrf";
 
 /**
  * POST /api/auth/logout
@@ -20,6 +21,11 @@ import {
  * 7. In case of database error, returns 500 without claiming successful revocation.
  */
 export async function POST(request: Request) {
+  const csrfError = requireCsrf(request, { allowEmptyBody: true });
+  if (csrfError) {
+    return csrfError;
+  }
+
   try {
     const rawToken = extractSessionTokenFromRequest(request);
     const expiredCookie = getExpiredSessionCookieConfig();

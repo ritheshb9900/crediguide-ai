@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth/rate-limiter";
 import { extractClientIp } from "@/lib/auth/session";
 import { ResendVerificationInputSchema } from "@/lib/auth/validation";
+import { requireCsrf } from "@/lib/auth/csrf";
 
 /**
  * Standard anti-enumeration response message returned for all resend-verification requests.
@@ -39,6 +40,11 @@ const GENERIC_RESEND_VERIFICATION_RESPONSE = {
  * 5. Zero Secret Exposure: Raw tokens are never logged or exposed in HTTP responses.
  */
 export async function POST(request: Request) {
+  const csrfError = requireCsrf(request);
+  if (csrfError) {
+    return csrfError;
+  }
+
   try {
     let body: unknown;
     try {

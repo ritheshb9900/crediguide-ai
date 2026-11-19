@@ -41,6 +41,7 @@ const NONEXISTENT_EMAIL = `test.does.not.exist@${TEST_DOMAIN}`;
 const INITIAL_PASSWORD = "InitialPassword@2026!";
 const NEW_PASSWORD = "NewUpdatedPassword#2026!";
 const WEAK_PASSWORD = "weak";
+const TEST_ORIGIN = "http://localhost:3000";
 
 let passedCount = 0;
 let failedCount = 0;
@@ -149,7 +150,7 @@ async function runResetVerificationTestSuite() {
       DevEmailSink.clear();
       const req = new Request("http://localhost:3000/api/auth/forgot-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ email: USER_A_EMAIL }),
       });
       const res = await forgotPasswordHandler(req);
@@ -177,7 +178,7 @@ async function runResetVerificationTestSuite() {
       DevEmailSink.clear();
       const req = new Request("http://localhost:3000/api/auth/forgot-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ email: NONEXISTENT_EMAIL }),
       });
       const res = await forgotPasswordHandler(req);
@@ -198,7 +199,7 @@ async function runResetVerificationTestSuite() {
       DevEmailSink.clear();
       const req = new Request("http://localhost:3000/api/auth/forgot-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ email: INACTIVE_USER_EMAIL }),
       });
       const res = await forgotPasswordHandler(req);
@@ -218,7 +219,7 @@ async function runResetVerificationTestSuite() {
       // First request
       const req1 = new Request("http://localhost:3000/api/auth/forgot-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ email: USER_A_EMAIL }),
       });
       await forgotPasswordHandler(req1);
@@ -226,7 +227,7 @@ async function runResetVerificationTestSuite() {
       // Second request
       const req2 = new Request("http://localhost:3000/api/auth/forgot-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ email: USER_A_EMAIL }),
       });
       await forgotPasswordHandler(req2);
@@ -251,6 +252,7 @@ async function runResetVerificationTestSuite() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            origin: TEST_ORIGIN,
             "x-forwarded-for": "198.51.100.1",
           },
           body: JSON.stringify({ email: `test.throttle.${i}@${TEST_DOMAIN}` }),
@@ -292,7 +294,7 @@ async function runResetVerificationTestSuite() {
     await test("POST /reset-password rejects weak password without consuming token", async () => {
       const req = new Request("http://localhost:3000/api/auth/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ token: rawResetTokenA, password: WEAK_PASSWORD }),
       });
       const res = await resetPasswordHandler(req);
@@ -310,7 +312,7 @@ async function runResetVerificationTestSuite() {
     await test("POST /reset-password successfully updates password, unlocks account, and revokes sessions", async () => {
       const req = new Request("http://localhost:3000/api/auth/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ token: rawResetTokenA, password: NEW_PASSWORD }),
       });
       const res = await resetPasswordHandler(req);
@@ -352,7 +354,7 @@ async function runResetVerificationTestSuite() {
     await test("Replay Attack Defense: Re-submitting consumed reset token returns HTTP 400", async () => {
       const req = new Request("http://localhost:3000/api/auth/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ token: rawResetTokenA, password: "AnotherPassword!2026" }),
       });
       const res = await resetPasswordHandler(req);
@@ -374,7 +376,7 @@ async function runResetVerificationTestSuite() {
 
       const req = new Request("http://localhost:3000/api/auth/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ token: rawExpiredToken, password: NEW_PASSWORD }),
       });
       const res = await resetPasswordHandler(req);
@@ -399,14 +401,14 @@ async function runResetVerificationTestSuite() {
         resetPasswordHandler(
           new Request("http://localhost:3000/api/auth/reset-password", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
             body: JSON.stringify({ token: rawConcurrentToken, password: "ConcurPassA#2026!" }),
           })
         ),
         resetPasswordHandler(
           new Request("http://localhost:3000/api/auth/reset-password", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
             body: JSON.stringify({ token: rawConcurrentToken, password: "ConcurPassB#2026!" }),
           })
         ),
@@ -428,7 +430,7 @@ async function runResetVerificationTestSuite() {
     // Register a new applicant via /api/auth/register
     const regReq = new Request("http://localhost:3000/api/auth/register", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
       body: JSON.stringify({
         firstName: "Verifiable",
         lastName: "Applicant",
@@ -449,7 +451,7 @@ async function runResetVerificationTestSuite() {
     await test("POST /verify-email successfully verifies user email", async () => {
       const req = new Request("http://localhost:3000/api/auth/verify-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ token: rawVerificationToken }),
       });
       const res = await verifyEmailHandler(req);
@@ -467,7 +469,7 @@ async function runResetVerificationTestSuite() {
     await test("Replay Attack Defense: Re-submitting consumed verification token returns HTTP 400", async () => {
       const req = new Request("http://localhost:3000/api/auth/verify-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ token: rawVerificationToken }),
       });
       const res = await verifyEmailHandler(req);
@@ -489,7 +491,7 @@ async function runResetVerificationTestSuite() {
 
       const req = new Request("http://localhost:3000/api/auth/verify-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ token: rawExpiredVerify }),
       });
       const res = await verifyEmailHandler(req);
@@ -516,7 +518,7 @@ async function runResetVerificationTestSuite() {
       // Verify user A
       const req = new Request("http://localhost:3000/api/auth/verify-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ token: rawIsolatedToken }),
       });
       const res = await verifyEmailHandler(req);
@@ -546,14 +548,14 @@ async function runResetVerificationTestSuite() {
         verifyEmailHandler(
           new Request("http://localhost:3000/api/auth/verify-email", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
             body: JSON.stringify({ token: rawConcurrentVerify }),
           })
         ),
         verifyEmailHandler(
           new Request("http://localhost:3000/api/auth/verify-email", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
             body: JSON.stringify({ token: rawConcurrentVerify }),
           })
         ),
@@ -579,7 +581,7 @@ async function runResetVerificationTestSuite() {
       DevEmailSink.clear();
       const req = new Request("http://localhost:3000/api/auth/resend-verification", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ email: USER_A_EMAIL }),
       });
       const res = await resendVerificationHandler(req);
@@ -609,7 +611,7 @@ async function runResetVerificationTestSuite() {
 
       const req = new Request("http://localhost:3000/api/auth/resend-verification", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ email: USER_B_EMAIL }),
       });
       const res = await resendVerificationHandler(req);
@@ -631,7 +633,7 @@ async function runResetVerificationTestSuite() {
     await test("POST /resend-verification for non-existent email returns generic 200", async () => {
       const req = new Request("http://localhost:3000/api/auth/resend-verification", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({ email: NONEXISTENT_EMAIL }),
       });
       const res = await resendVerificationHandler(req);
@@ -671,16 +673,18 @@ async function runResetVerificationTestSuite() {
       const origEnv = process.env.NODE_ENV;
       const origStore = process.env.RATE_LIMIT_STORE;
       const origRedis = process.env.REDIS_URL;
+      const origAppUrl = process.env.APP_URL;
 
       try {
         envObj.NODE_ENV = "production";
+        envObj.APP_URL = TEST_ORIGIN;
         delete process.env.RATE_LIMIT_STORE;
         delete process.env.REDIS_URL;
         resetRateLimiterInstance();
 
         const req = new Request("http://localhost:3000/api/auth/forgot-password", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
           body: JSON.stringify({ email: USER_A_EMAIL }),
         });
         const res = await forgotPasswordHandler(req);
@@ -689,6 +693,8 @@ async function runResetVerificationTestSuite() {
         assert.strictEqual(data.error, "SERVICE_UNAVAILABLE");
       } finally {
         envObj.NODE_ENV = origEnv;
+        if (origAppUrl !== undefined) process.env.APP_URL = origAppUrl;
+        else delete process.env.APP_URL;
         if (origStore) process.env.RATE_LIMIT_STORE = origStore;
         if (origRedis) process.env.REDIS_URL = origRedis;
         resetRateLimiterInstance();

@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth/rate-limiter";
 import { extractClientIp } from "@/lib/auth/session";
 import { ForgotPasswordInputSchema } from "@/lib/auth/validation";
+import { requireCsrf } from "@/lib/auth/csrf";
 
 /**
  * Standard anti-enumeration response message returned for all forgot-password requests,
@@ -40,6 +41,11 @@ const GENERIC_FORGOT_PASSWORD_RESPONSE = {
  *    or returned in the HTTP response.
  */
 export async function POST(request: Request) {
+  const csrfError = requireCsrf(request);
+  if (csrfError) {
+    return csrfError;
+  }
+
   try {
     let body: unknown;
     try {

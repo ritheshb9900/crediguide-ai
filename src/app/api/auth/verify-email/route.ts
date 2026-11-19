@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashToken } from "@/lib/auth/tokens";
 import { VerifyEmailInputSchema } from "@/lib/auth/validation";
+import { requireCsrf } from "@/lib/auth/csrf";
 
 /**
  * POST /api/auth/verify-email
@@ -20,6 +21,11 @@ import { VerifyEmailInputSchema } from "@/lib/auth/validation";
  *    Never returns tokens or hashes in the response.
  */
 export async function POST(request: Request) {
+  const csrfError = requireCsrf(request);
+  if (csrfError) {
+    return csrfError;
+  }
+
   try {
     let body: unknown;
     try {

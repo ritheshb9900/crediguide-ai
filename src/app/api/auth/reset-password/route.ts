@@ -4,6 +4,7 @@ import { hashToken } from "@/lib/auth/tokens";
 import { hashPassword } from "@/lib/auth/password";
 import { revokeAllUserSessions } from "@/lib/auth/session";
 import { ResetPasswordInputSchema } from "@/lib/auth/validation";
+import { requireCsrf } from "@/lib/auth/csrf";
 
 /**
  * POST /api/auth/reset-password
@@ -27,6 +28,11 @@ import { ResetPasswordInputSchema } from "@/lib/auth/validation";
  *    Zero passwords, hashes, or tokens exposed in responses.
  */
 export async function POST(request: Request) {
+  const csrfError = requireCsrf(request);
+  if (csrfError) {
+    return csrfError;
+  }
+
   try {
     let body: unknown;
     try {

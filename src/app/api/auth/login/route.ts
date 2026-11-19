@@ -11,6 +11,7 @@ import {
   RateLimiterConfigurationError,
 } from "@/lib/auth/rate-limiter";
 import { createDatabaseSession } from "@/lib/auth/session";
+import { requireCsrf } from "@/lib/auth/csrf";
 
 // Constant dummy hash to simulate Argon2id verification for nonexistent users
 // Eliminates timing discrepancy between existing and nonexistent accounts
@@ -18,6 +19,11 @@ const DUMMY_ARGON2_HASH =
   "$argon2id$v=19$m=19456,t=2,p=1$ZHVtbXlTYWx0Rm9yVGltaW5nRGVmZW5zZQ$dummydigesttopreventtiminganalysisattacks";
 
 export async function POST(request: Request) {
+  const csrfError = requireCsrf(request);
+  if (csrfError) {
+    return csrfError;
+  }
+
   try {
     let body: unknown;
     try {

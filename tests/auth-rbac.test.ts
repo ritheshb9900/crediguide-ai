@@ -33,6 +33,7 @@ const BOOTSTRAP_TEST_EMAIL = `test.bootstrap.admin@${TEST_DOMAIN}`;
 
 const TEST_PASSWORD = "StrongRBACPassword@2026!";
 const OFFICER_TEMP_PASSWORD = "OfficerTempPass#2026!";
+const TEST_ORIGIN = "http://localhost:3000";
 
 let passedCount = 0;
 let failedCount = 0;
@@ -544,7 +545,7 @@ async function runRBACTestSuite() {
     await test("POST /api/admin/officers rejects unauthenticated request with 401", async () => {
       const req = new Request("http://localhost:3000/api/admin/officers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({}),
       });
       const res = await officerProvisionHandler(req);
@@ -557,6 +558,7 @@ async function runRBACTestSuite() {
         headers: {
           "Content-Type": "application/json",
           cookie: `${SESSION_COOKIE_NAME}=${applicantASession.rawToken}`,
+          origin: TEST_ORIGIN,
         },
         body: JSON.stringify({}),
       });
@@ -570,6 +572,7 @@ async function runRBACTestSuite() {
         headers: {
           "Content-Type": "application/json",
           cookie: `${SESSION_COOKIE_NAME}=${officerASession.rawToken}`,
+          origin: TEST_ORIGIN,
         },
         body: JSON.stringify({}),
       });
@@ -583,6 +586,7 @@ async function runRBACTestSuite() {
         headers: {
           "Content-Type": "application/json",
           cookie: `${SESSION_COOKIE_NAME}=${currentAdminSession.rawToken}`,
+          origin: TEST_ORIGIN,
         },
         body: JSON.stringify({
           firstName: "John",
@@ -601,6 +605,7 @@ async function runRBACTestSuite() {
         headers: {
           "Content-Type": "application/json",
           cookie: `${SESSION_COOKIE_NAME}=${currentAdminSession.rawToken}`,
+          origin: TEST_ORIGIN,
         },
         body: JSON.stringify({
           firstName: "Duplicate",
@@ -625,6 +630,7 @@ async function runRBACTestSuite() {
         headers: {
           "Content-Type": "application/json",
           cookie: `${SESSION_COOKIE_NAME}=${currentAdminSession.rawToken}`,
+          origin: TEST_ORIGIN,
         },
         body: JSON.stringify({
           firstName: "Duplicate",
@@ -652,6 +658,7 @@ async function runRBACTestSuite() {
         headers: {
           "Content-Type": "application/json",
           cookie: `${SESSION_COOKIE_NAME}=${currentAdminSession.rawToken}`,
+          origin: TEST_ORIGIN,
         },
         body: JSON.stringify({
           firstName: "Provisioned",
@@ -691,7 +698,7 @@ async function runRBACTestSuite() {
     await test("Newly provisioned officer can log in with temporary password", async () => {
       const loginReq = new Request("http://localhost:3000/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", origin: TEST_ORIGIN },
         body: JSON.stringify({
           email: NEW_OFFICER_EMAIL,
           password: OFFICER_TEMP_PASSWORD,
