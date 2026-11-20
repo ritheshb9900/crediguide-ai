@@ -9,8 +9,13 @@ import { AuthCard } from "@/components/auth/auth-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useAuth, type UserRole } from "@/contexts/auth-context";
-import { sanitizeReturnUrl } from "@/proxy";
+import { useAuth } from "@/contexts/auth-context";
+import {
+  isAllowedRolePath,
+  getRoleRedirectDestination,
+} from "@/lib/auth/redirects";
+
+export { isAllowedRolePath, getRoleRedirectDestination };
 
 /**
  * Safely resolves useRouter() with graceful fallback for environments
@@ -33,72 +38,6 @@ function useSafeSearchParams() {
     return useSearchParams();
   } catch {
     return null;
-  }
-}
-
-/**
- * Validates that a sanitized path strictly belongs to an allowed route prefix.
- * Enforces strict path-boundary delimiters ('/', '?', '#', or exact match)
- * to prevent path-prefix confusion attacks (e.g. /dashboard-evil matching /dashboard).
- */
-export function isAllowedRolePath(path: string, allowedPrefix: string): boolean {
-  return (
-    path === allowedPrefix ||
-    path.startsWith(allowedPrefix + "/") ||
-    path.startsWith(allowedPrefix + "?") ||
-    path.startsWith(allowedPrefix + "#")
-  );
-}
-
-/**
- * Determines the authoritative redirect destination based on the user's verified role
- * and an optional sanitized returnUrl.
- *
- * Security Invariants:
- * 1. An applicant can never be redirected to an officer or admin portal route.
- * 2. An officer can never be redirected to an admin portal route.
- * 3. All returnUrls are sanitized against protocol-relative and external open redirects.
- * 4. Fallback defaults to the role's primary landing destination.
- * 5. Role routes enforce strict path boundaries to prevent path-prefix confusion.
- */
-export function getRoleRedirectDestination(role: UserRole, returnUrl?: string | null): string {
-  if (returnUrl) {
-    const sanitized = sanitizeReturnUrl(returnUrl);
-
-    if (role === "LOAN_APPLICANT") {
-      if (
-        isAllowedRolePath(sanitized, "/dashboard") ||
-        isAllowedRolePath(sanitized, "/applications")
-      ) {
-        return sanitized;
-      }
-    } else if (role === "BANK_OFFICER") {
-      if (
-        isAllowedRolePath(sanitized, "/officer") ||
-        isAllowedRolePath(sanitized, "/dashboard")
-      ) {
-        return sanitized;
-      }
-    } else if (role === "BANK_ADMIN") {
-      if (
-        isAllowedRolePath(sanitized, "/admin") ||
-        isAllowedRolePath(sanitized, "/officer") ||
-        isAllowedRolePath(sanitized, "/dashboard")
-      ) {
-        return sanitized;
-      }
-    }
-  }
-
-  // Authoritative default destinations by role
-  switch (role) {
-    case "BANK_ADMIN":
-      return "/admin";
-    case "BANK_OFFICER":
-      return "/officer";
-    case "LOAN_APPLICANT":
-    default:
-      return "/dashboard";
   }
 }
 

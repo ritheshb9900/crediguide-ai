@@ -2,36 +2,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { requireCsrf } from "@/lib/auth/csrf";
+import { sanitizeReturnUrl } from "@/lib/auth/redirects";
 
-/**
- * Validates and normalizes a candidate returnUrl to prevent Open Redirect vulnerabilities.
- *
- * Rules:
- * - Must be an absolute-path relative URL starting with a single '/'
- * - Must NOT start with '//' (protocol-relative external redirect)
- * - Must NOT start with '/\' (Windows backslash path traversal / scheme trick)
- * - Must NOT contain ':' or '@' (disallows http:, https:, javascript:, data:, credentials)
- * - Falls back to safe default '/' on any violation
- */
-export function sanitizeReturnUrl(candidate: string | null | undefined): string {
-  if (!candidate || typeof candidate !== "string") {
-    return "/";
-  }
-
-  const trimmed = candidate.trim();
-
-  // Must begin with a single '/'
-  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.startsWith("/\\")) {
-    return "/";
-  }
-
-  // Reject scheme/protocol or authority indicators
-  if (trimmed.includes(":") || trimmed.includes("@") || trimmed.includes("\\")) {
-    return "/";
-  }
-
-  return trimmed;
-}
+export { sanitizeReturnUrl };
 
 /**
  * Next.js 16 Early Routing Guard & Early CSRF Perimeter (Proxy)
