@@ -24,6 +24,8 @@
     "test:auth-reset": "tsx tests/auth-reset-verification.test.ts",
     "test:auth-csrf": "tsx tests/auth-csrf.test.ts",
     "test:auth-ui": "tsx tests/auth-ui-components.test.ts",
+    "test:auth-context": "tsx tests/auth-context.test.ts",
+    "test:header-auth": "tsx tests/header-auth-integration.test.ts",
     "auth:bootstrap": "tsx scripts/auth-bootstrap.ts"
   },
   "prisma": {
