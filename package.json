@@ -26,6 +26,7 @@
     "test:auth-ui": "tsx tests/auth-ui-components.test.ts",
     "test:auth-context": "tsx tests/auth-context.test.ts",
     "test:header-auth": "tsx tests/header-auth-integration.test.ts",
+    "test:auth-login-page": "tsx tests/auth-login-page.test.ts",
     "auth:bootstrap": "tsx scripts/auth-bootstrap.ts"
   },
   "prisma": {
