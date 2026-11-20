@@ -28,6 +28,7 @@
     "test:header-auth": "tsx tests/header-auth-integration.test.ts",
     "test:auth-login-page": "tsx tests/auth-login-page.test.ts",
     "test:auth-register-page": "tsx tests/auth-register-page.test.ts",
+    "test:auth-forgot-password": "tsx tests/auth-forgot-password-page.test.ts",
     "auth:bootstrap": "tsx scripts/auth-bootstrap.ts"
   },
   "prisma": {
