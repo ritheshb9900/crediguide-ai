@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import ResetPasswordPage, {
+import ResetPasswordPage from "@/app/auth/reset-password/page";
+import {
   ResetPasswordForm,
   ResetPasswordLoadingFallback,
   isValidResetToken,
   validateResetPasswordInput,
   buildResetPasswordPayload,
-} from "@/app/auth/reset-password/page";
+} from "@/components/auth/reset-password-view";
 import {
   AuthProvider,
   AuthContext,

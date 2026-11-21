@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import LoginPage, {
+import LoginPage from "@/app/auth/login/page";
+import {
   LoginForm,
   LoginLoadingFallback,
+} from "@/components/auth/login-view";
+import {
   getRoleRedirectDestination,
   isAllowedRolePath,
-} from "@/app/auth/login/page";
+} from "@/lib/auth/redirects";
 import {
   AuthProvider,
   AuthContext,
