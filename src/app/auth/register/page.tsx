@@ -386,6 +386,17 @@ export function RegisterForm({ onSuccess, registerFn }: RegisterFormProps) {
             </div>
           </div>
 
+          {/* Resend verification prompt */}
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            <span>Didn&apos;t receive the email? </span>
+            <Link
+              href={`/auth/verify-email?email=${encodeURIComponent(successData.email)}`}
+              className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline transition-colors"
+            >
+              Resend verification
+            </Link>
+          </div>
+
           <div className="pt-2">
             <Link
               href="/auth/login"

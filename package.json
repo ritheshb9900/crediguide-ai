@@ -30,6 +30,7 @@
     "test:auth-register-page": "tsx tests/auth-register-page.test.ts",
     "test:auth-forgot-password": "tsx tests/auth-forgot-password-page.test.ts",
     "test:auth-reset-password": "tsx tests/auth-reset-password-page.test.ts",
+    "test:auth-verify-email": "tsx tests/auth-verify-email-page.test.ts",
     "auth:bootstrap": "tsx scripts/auth-bootstrap.ts"
   },
   "prisma": {

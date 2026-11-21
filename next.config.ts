@@ -12,6 +12,15 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        source: "/auth/verify-email",
+        headers: [
+          {
+            key: "Referrer-Policy",
+            value: "no-referrer",
+          },
+        ],
+      },
     ];
   },
 };
