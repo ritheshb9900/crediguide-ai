@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:e2e:migrate": "tsx scripts/e2e-migrate.ts",
     "test:engine": "tsx tests/deterministic-engine.test.ts",
     "test:ai": "tsx tests/mock-ai.test.ts",
     "test:chat": "tsx tests/chat-route.test.ts",
@@ -31,6 +32,8 @@
     "test:auth-forgot-password": "tsx tests/auth-forgot-password-page.test.ts",
     "test:auth-reset-password": "tsx tests/auth-reset-password-page.test.ts",
     "test:auth-verify-email": "tsx tests/auth-verify-email-page.test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e-hardening": "tsx tests/e2e-security-hardening.test.ts",
     "auth:bootstrap": "tsx scripts/auth-bootstrap.ts"
   },
   "prisma": {
@@ -52,6 +55,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",

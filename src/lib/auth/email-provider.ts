@@ -35,6 +35,13 @@ class DevEmailSinkManager {
     return this.sink.find((record) => record.to.toLowerCase() === normalized);
   }
 
+  clearFor(email: string): number {
+    const normalized = email.toLowerCase().trim();
+    const initialCount = this.sink.length;
+    this.sink = this.sink.filter((record) => record.to.toLowerCase() !== normalized);
+    return initialCount - this.sink.length;
+  }
+
   clear(): void {
     this.sink = [];
   }
