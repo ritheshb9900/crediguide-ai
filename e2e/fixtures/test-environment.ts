@@ -128,3 +128,92 @@ export async function cleanupE2EUser(email: string): Promise<void> {
     // Non-fatal if server is stopped
   }
 }
+
+/**
+ * Safely expires all active verification tokens for a given test email in crediguide_e2e_db.
+ */
+export async function expireVerificationTokenForTest(email: string): Promise<void> {
+  const normalized = email.toLowerCase().trim();
+  if (!normalized.endsWith(E2E_TEST_DOMAIN) && !normalized.endsWith("@e2e.crediguide.local")) {
+    throw new Error(
+      `SECURITY_VIOLATION: Refusing to expire token for non-test email: '${email}'`
+    );
+  }
+
+  const e2eDbUrl = process.env.E2E_DATABASE_URL;
+  if (!e2eDbUrl || typeof e2eDbUrl !== "string" || e2eDbUrl.trim() === "") {
+    throw new Error(
+      "FATAL_E2E_CONFIGURATION_ERROR: process.env.E2E_DATABASE_URL is not set for test operation."
+    );
+  }
+
+  const pool = new Pool({ connectionString: e2eDbUrl });
+  try {
+    const checkRes = await pool.query("SELECT current_database() as db;");
+    if (checkRes.rows[0].db !== "crediguide_e2e_db") {
+      throw new Error(
+        `CRITICAL_SAFETY_FAIL: Target DB is ${checkRes.rows[0].db}, expected crediguide_e2e_db`
+      );
+    }
+
+    const res = await pool.query(
+      `UPDATE "email_verification_tokens"
+       SET "expiresAt" = NOW() - INTERVAL '48 hours'
+       FROM "users"
+       WHERE "email_verification_tokens"."userId" = "users"."id"
+         AND lower("users"."email") = lower($1);`,
+      [normalized]
+    );
+    if (res.rowCount === 0) {
+      throw new Error(`expireVerificationTokenForTest: No verification token found for ${normalized}`);
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
+ * Safely fetches a user record from crediguide_e2e_db for test verification.
+ */
+export async function getUserRecordFromE2EDB(
+  email: string
+): Promise<{ id: string; email: string; role: string; isEmailVerified: boolean } | null> {
+  const normalized = email.toLowerCase().trim();
+  if (!normalized.endsWith(E2E_TEST_DOMAIN) && !normalized.endsWith("@e2e.crediguide.local")) {
+    throw new Error(
+      `SECURITY_VIOLATION: Refusing to query non-test email: '${email}'`
+    );
+  }
+
+  const e2eDbUrl = process.env.E2E_DATABASE_URL;
+  if (!e2eDbUrl || typeof e2eDbUrl !== "string" || e2eDbUrl.trim() === "") {
+    throw new Error(
+      "FATAL_E2E_CONFIGURATION_ERROR: process.env.E2E_DATABASE_URL is not set for test operation."
+    );
+  }
+
+  const pool = new Pool({ connectionString: e2eDbUrl });
+  try {
+    const checkRes = await pool.query("SELECT current_database() as db;");
+    if (checkRes.rows[0].db !== "crediguide_e2e_db") {
+      throw new Error(
+        `CRITICAL_SAFETY_FAIL: Target DB is ${checkRes.rows[0].db}, expected crediguide_e2e_db`
+      );
+    }
+
+    const res = await pool.query(
+      `SELECT "id", "email", "role", "isEmailVerified" FROM "users" WHERE lower("email") = lower($1) LIMIT 1;`,
+      [normalized]
+    );
+    if (res.rows.length === 0) return null;
+    return {
+      id: res.rows[0].id,
+      email: res.rows[0].email,
+      role: res.rows[0].role,
+      isEmailVerified: res.rows[0].isEmailVerified,
+    };
+  } finally {
+    await pool.end();
+  }
+}
+
