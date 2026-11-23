@@ -478,3 +478,198 @@ export async function getLatestSessionRecordForUser(
   }
 }
 
+/**
+ * Safely expires active password reset tokens for a given test email in crediguide_e2e_db.
+ */
+export async function expirePasswordResetTokenForTest(email: string): Promise<void> {
+  const normalized = email.toLowerCase().trim();
+  if (!normalized.endsWith(E2E_TEST_DOMAIN) && !normalized.endsWith("@e2e.crediguide.local")) {
+    throw new Error(
+      `SECURITY_VIOLATION: Refusing to expire reset token for non-test email: '${email}'`
+    );
+  }
+
+  const e2eDbUrl = process.env.E2E_DATABASE_URL;
+  if (!e2eDbUrl || typeof e2eDbUrl !== "string" || e2eDbUrl.trim() === "") {
+    throw new Error(
+      "FATAL_E2E_CONFIGURATION_ERROR: process.env.E2E_DATABASE_URL is not set for test operation."
+    );
+  }
+
+  const pool = new Pool({ connectionString: e2eDbUrl });
+  try {
+    const checkRes = await pool.query("SELECT current_database() as db;");
+    if (checkRes.rows[0].db !== "crediguide_e2e_db") {
+      throw new Error(
+        `CRITICAL_SAFETY_FAIL: Target DB is ${checkRes.rows[0].db}, expected crediguide_e2e_db`
+      );
+    }
+
+    const res = await pool.query(
+      `UPDATE "password_reset_tokens"
+       SET "expiresAt" = NOW() - INTERVAL '48 hours'
+       FROM "users"
+       WHERE "password_reset_tokens"."userId" = "users"."id"
+         AND lower("users"."email") = lower($1)
+         AND "password_reset_tokens"."usedAt" IS NULL;`,
+      [normalized]
+    );
+    if (res.rowCount === 0) {
+      throw new Error(`expirePasswordResetTokenForTest: No active password reset token found for ${normalized}`);
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
+ * Safely marks active password reset tokens as used for a given test email in crediguide_e2e_db.
+ */
+export async function markPasswordResetTokenUsedForTest(email: string): Promise<void> {
+  const normalized = email.toLowerCase().trim();
+  if (!normalized.endsWith(E2E_TEST_DOMAIN) && !normalized.endsWith("@e2e.crediguide.local")) {
+    throw new Error(
+      `SECURITY_VIOLATION: Refusing to mark token used for non-test email: '${email}'`
+    );
+  }
+
+  const e2eDbUrl = process.env.E2E_DATABASE_URL;
+  if (!e2eDbUrl || typeof e2eDbUrl !== "string" || e2eDbUrl.trim() === "") {
+    throw new Error(
+      "FATAL_E2E_CONFIGURATION_ERROR: process.env.E2E_DATABASE_URL is not set for test operation."
+    );
+  }
+
+  const pool = new Pool({ connectionString: e2eDbUrl });
+  try {
+    const checkRes = await pool.query("SELECT current_database() as db;");
+    if (checkRes.rows[0].db !== "crediguide_e2e_db") {
+      throw new Error(
+        `CRITICAL_SAFETY_FAIL: Target DB is ${checkRes.rows[0].db}, expected crediguide_e2e_db`
+      );
+    }
+
+    const res = await pool.query(
+      `UPDATE "password_reset_tokens"
+       SET "usedAt" = NOW() - INTERVAL '1 hour'
+       FROM "users"
+       WHERE "password_reset_tokens"."userId" = "users"."id"
+         AND lower("users"."email") = lower($1);`,
+      [normalized]
+    );
+    if (res.rowCount === 0) {
+      throw new Error(`markPasswordResetTokenUsedForTest: No password reset token found for ${normalized}`);
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
+ * Safely counts active (unexpired, unrevoked) user sessions for a test email in crediguide_e2e_db.
+ */
+export async function countActiveSessionsForUser(email: string): Promise<number> {
+  const normalized = email.toLowerCase().trim();
+  if (!normalized.endsWith(E2E_TEST_DOMAIN) && !normalized.endsWith("@e2e.crediguide.local")) {
+    throw new Error(
+      `SECURITY_VIOLATION: Refusing to query sessions for non-test email: '${email}'`
+    );
+  }
+
+  const e2eDbUrl = process.env.E2E_DATABASE_URL;
+  if (!e2eDbUrl || typeof e2eDbUrl !== "string" || e2eDbUrl.trim() === "") {
+    throw new Error(
+      "FATAL_E2E_CONFIGURATION_ERROR: process.env.E2E_DATABASE_URL is not set for test operation."
+    );
+  }
+
+  const pool = new Pool({ connectionString: e2eDbUrl });
+  try {
+    const checkRes = await pool.query("SELECT current_database() as db;");
+    if (checkRes.rows[0].db !== "crediguide_e2e_db") {
+      throw new Error(
+        `CRITICAL_SAFETY_FAIL: Target DB is ${checkRes.rows[0].db}, expected crediguide_e2e_db`
+      );
+    }
+
+    const res = await pool.query(
+      `SELECT count(*)::int as count
+       FROM "user_sessions"
+       JOIN "users" ON "user_sessions"."userId" = "users"."id"
+       WHERE lower("users"."email") = lower($1)
+         AND "user_sessions"."revokedAt" IS NULL
+         AND "user_sessions"."expiresAt" > NOW();`,
+      [normalized]
+    );
+    return res.rows[0].count;
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
+ * Directly creates a password reset token for a test email in crediguide_e2e_db.
+ * Allows deterministic E2E testing of reset forms without triggering forgot-password rate limits.
+ */
+export async function createPasswordResetTokenForTest(
+  email: string,
+  options?: { expiresAt?: Date; usedAt?: Date }
+): Promise<string> {
+  const normalized = email.toLowerCase().trim();
+  if (!normalized.endsWith(E2E_TEST_DOMAIN) && !normalized.endsWith("@e2e.crediguide.local")) {
+    throw new Error(
+      `SECURITY_VIOLATION: Refusing to create token for non-test email: '${email}'`
+    );
+  }
+
+  const e2eDbUrl = process.env.E2E_DATABASE_URL;
+  if (!e2eDbUrl || typeof e2eDbUrl !== "string" || e2eDbUrl.trim() === "") {
+    throw new Error(
+      "FATAL_E2E_CONFIGURATION_ERROR: process.env.E2E_DATABASE_URL is not set for test operation."
+    );
+  }
+
+  const pool = new Pool({ connectionString: e2eDbUrl });
+  try {
+    const checkRes = await pool.query("SELECT current_database() as db;");
+    if (checkRes.rows[0].db !== "crediguide_e2e_db") {
+      throw new Error(
+        `CRITICAL_SAFETY_FAIL: Target DB is ${checkRes.rows[0].db}, expected crediguide_e2e_db`
+      );
+    }
+
+    const userRes = await pool.query(
+      `SELECT "id" FROM "users" WHERE lower("email") = lower($1) LIMIT 1;`,
+      [normalized]
+    );
+    if (userRes.rows.length === 0) {
+      throw new Error(`createPasswordResetTokenForTest: User '${normalized}' not found in crediguide_e2e_db.`);
+    }
+    const userId = userRes.rows[0].id;
+
+    // Generate token and SHA-256 hash
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const tokenId = crypto.randomUUID();
+    const expiresAt = options?.expiresAt || new Date(Date.now() + 15 * 60 * 1000);
+    const usedAt = options?.usedAt || null;
+
+    // Invalidate pre-existing unused tokens
+    await pool.query(
+      `UPDATE "password_reset_tokens" SET "usedAt" = NOW() WHERE "userId" = $1 AND "usedAt" IS NULL;`,
+      [userId]
+    );
+
+    // Insert new token
+    await pool.query(
+      `INSERT INTO "password_reset_tokens" ("id", "userId", "tokenHash", "expiresAt", "usedAt", "createdAt")
+       VALUES ($1, $2, $3, $4, $5, NOW());`,
+      [tokenId, userId, tokenHash, expiresAt, usedAt]
+    );
+
+    return rawToken;
+  } finally {
+    await pool.end();
+  }
+}
+
