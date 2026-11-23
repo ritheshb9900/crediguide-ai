@@ -1,4 +1,6 @@
 import { Pool } from "pg";
+import crypto from "crypto";
+import { hashPassword } from "../../src/lib/auth/password";
 
 export const E2E_TEST_DOMAIN = "@cg-test-domain.org";
 
@@ -211,6 +213,265 @@ export async function getUserRecordFromE2EDB(
       email: res.rows[0].email,
       role: res.rows[0].role,
       isEmailVerified: res.rows[0].isEmailVerified,
+    };
+  } finally {
+    await pool.end();
+  }
+}
+
+export interface ProvisionUserOptions {
+  email?: string;
+  password?: string;
+  role: "LOAN_APPLICANT" | "BANK_OFFICER" | "BANK_ADMIN";
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  isEmailVerified?: boolean;
+  isActive?: boolean;
+}
+
+export interface ProvisionedUserResult {
+  id: string;
+  email: string;
+  password: string;
+  role: "LOAN_APPLICANT" | "BANK_OFFICER" | "BANK_ADMIN";
+  applicantId?: string;
+  officerProfileId?: string;
+}
+
+/**
+ * Provisions a test user with a specific role directly in crediguide_e2e_db.
+ * Strictly verifies target DB is crediguide_e2e_db and email domain is authorized.
+ */
+export async function provisionE2EUserForTest(
+  options: ProvisionUserOptions
+): Promise<ProvisionedUserResult> {
+  const role = options.role;
+  const timestamp = Date.now();
+  const rand = Math.floor(Math.random() * 9000) + 1000;
+  const email = (
+    options.email ||
+    `${role.toLowerCase().replace(/_/g, "-")}.${timestamp}.${rand}${E2E_TEST_DOMAIN}`
+  ).toLowerCase().trim();
+
+  if (!email.endsWith(E2E_TEST_DOMAIN) && !email.endsWith("@e2e.crediguide.local")) {
+    throw new Error(
+      `SECURITY_VIOLATION: Refusing to provision non-test email: '${email}'`
+    );
+  }
+
+  const e2eDbUrl = process.env.E2E_DATABASE_URL;
+  if (!e2eDbUrl || typeof e2eDbUrl !== "string" || e2eDbUrl.trim() === "") {
+    throw new Error(
+      "FATAL_E2E_CONFIGURATION_ERROR: process.env.E2E_DATABASE_URL is not set for test provisioning."
+    );
+  }
+
+  const pool = new Pool({ connectionString: e2eDbUrl });
+  try {
+    const checkRes = await pool.query("SELECT current_database() as db;");
+    if (checkRes.rows[0].db !== "crediguide_e2e_db") {
+      throw new Error(
+        `CRITICAL_SAFETY_FAIL: Target DB is ${checkRes.rows[0].db}, expected crediguide_e2e_db`
+      );
+    }
+
+    const password = options.password || "TestPassword123!Secure";
+    const passwordHash = await hashPassword(password);
+    const userId = crypto.randomUUID();
+    const firstName = options.firstName || (role === "BANK_ADMIN" ? "Admin" : role === "BANK_OFFICER" ? "Officer" : "Applicant");
+    const lastName = options.lastName || "Tester";
+    const phone = options.phone || "9876543210";
+    const isEmailVerified = options.isEmailVerified !== undefined ? options.isEmailVerified : true;
+    const isActive = options.isActive !== undefined ? options.isActive : true;
+
+    // Insert User record
+    await pool.query(
+      `INSERT INTO "users" (
+        "id", "email", "passwordHash", "role", "firstName", "lastName", "phone",
+        "isActive", "isEmailVerified", "failedLoginAttempts", "createdAt", "updatedAt"
+      ) VALUES (
+        $1, $2, $3, $4::"UserRole", $5, $6, $7,
+        $8, $9, 0, NOW(), NOW()
+      );`,
+      [userId, email, passwordHash, role, firstName, lastName, phone, isActive, isEmailVerified]
+    );
+
+    let applicantId: string | undefined;
+    let officerProfileId: string | undefined;
+
+    if (role === "LOAN_APPLICANT") {
+      applicantId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO "applicants" (
+          "id", "userId", "firstName", "lastName", "email", "phone",
+          "employmentType", "monthlyNetIncome", "existingMonthlyEmi",
+          "createdAt", "updatedAt"
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6,
+          'SALARIED', 75000.00, 0.00,
+          NOW(), NOW()
+        );`,
+        [applicantId, userId, firstName, lastName, email, phone]
+      );
+    } else if (role === "BANK_OFFICER") {
+      officerProfileId = crypto.randomUUID();
+      const employeeCode = `OFF-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
+      await pool.query(
+        `INSERT INTO "officer_profiles" (
+          "id", "userId", "employeeCode", "department", "branchCode",
+          "designation", "approvalLimitAmount", "createdAt", "updatedAt"
+        ) VALUES (
+          $1, $2, $3, 'Retail Lending', 'MUM01',
+          'Senior Underwriter', 1000000.00, NOW(), NOW()
+        );`,
+        [officerProfileId, userId, employeeCode]
+      );
+    }
+
+    return {
+      id: userId,
+      email,
+      password,
+      role,
+      applicantId,
+      officerProfileId,
+    };
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
+ * Expires active sessions for a given test email in crediguide_e2e_db.
+ */
+export async function expireSessionTokenForTest(email: string): Promise<void> {
+  const normalized = email.toLowerCase().trim();
+  if (!normalized.endsWith(E2E_TEST_DOMAIN) && !normalized.endsWith("@e2e.crediguide.local")) {
+    throw new Error(
+      `SECURITY_VIOLATION: Refusing to expire session for non-test email: '${email}'`
+    );
+  }
+
+  const e2eDbUrl = process.env.E2E_DATABASE_URL;
+  if (!e2eDbUrl || typeof e2eDbUrl !== "string" || e2eDbUrl.trim() === "") {
+    throw new Error(
+      "FATAL_E2E_CONFIGURATION_ERROR: process.env.E2E_DATABASE_URL is not set for test operation."
+    );
+  }
+
+  const pool = new Pool({ connectionString: e2eDbUrl });
+  try {
+    const checkRes = await pool.query("SELECT current_database() as db;");
+    if (checkRes.rows[0].db !== "crediguide_e2e_db") {
+      throw new Error(
+        `CRITICAL_SAFETY_FAIL: Target DB is ${checkRes.rows[0].db}, expected crediguide_e2e_db`
+      );
+    }
+
+    const res = await pool.query(
+      `UPDATE "user_sessions"
+       SET "expiresAt" = NOW() - INTERVAL '48 hours'
+       FROM "users"
+       WHERE "user_sessions"."userId" = "users"."id"
+         AND lower("users"."email") = lower($1);`,
+      [normalized]
+    );
+    if (res.rowCount === 0) {
+      throw new Error(`expireSessionTokenForTest: No active session found for ${normalized}`);
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
+ * Revokes active sessions for a given test email in crediguide_e2e_db.
+ */
+export async function revokeSessionTokenForTest(email: string): Promise<void> {
+  const normalized = email.toLowerCase().trim();
+  if (!normalized.endsWith(E2E_TEST_DOMAIN) && !normalized.endsWith("@e2e.crediguide.local")) {
+    throw new Error(
+      `SECURITY_VIOLATION: Refusing to revoke session for non-test email: '${email}'`
+    );
+  }
+
+  const e2eDbUrl = process.env.E2E_DATABASE_URL;
+  if (!e2eDbUrl || typeof e2eDbUrl !== "string" || e2eDbUrl.trim() === "") {
+    throw new Error(
+      "FATAL_E2E_CONFIGURATION_ERROR: process.env.E2E_DATABASE_URL is not set for test operation."
+    );
+  }
+
+  const pool = new Pool({ connectionString: e2eDbUrl });
+  try {
+    const checkRes = await pool.query("SELECT current_database() as db;");
+    if (checkRes.rows[0].db !== "crediguide_e2e_db") {
+      throw new Error(
+        `CRITICAL_SAFETY_FAIL: Target DB is ${checkRes.rows[0].db}, expected crediguide_e2e_db`
+      );
+    }
+
+    const res = await pool.query(
+      `UPDATE "user_sessions"
+       SET "revokedAt" = NOW()
+       FROM "users"
+       WHERE "user_sessions"."userId" = "users"."id"
+         AND lower("users"."email") = lower($1);`,
+      [normalized]
+    );
+    if (res.rowCount === 0) {
+      throw new Error(`revokeSessionTokenForTest: No active session found for ${normalized}`);
+    }
+  } finally {
+    await pool.end();
+  }
+}
+
+/**
+ * Safely fetches the latest session record for a given test email in crediguide_e2e_db.
+ */
+export async function getLatestSessionRecordForUser(
+  email: string
+): Promise<{ id: string; userId: string; expiresAt: Date; revokedAt: Date | null } | null> {
+  const normalized = email.toLowerCase().trim();
+  if (!normalized.endsWith(E2E_TEST_DOMAIN) && !normalized.endsWith("@e2e.crediguide.local")) {
+    throw new Error(
+      `SECURITY_VIOLATION: Refusing to query session for non-test email: '${email}'`
+    );
+  }
+
+  const e2eDbUrl = process.env.E2E_DATABASE_URL;
+  if (!e2eDbUrl || typeof e2eDbUrl !== "string" || e2eDbUrl.trim() === "") {
+    throw new Error(
+      "FATAL_E2E_CONFIGURATION_ERROR: process.env.E2E_DATABASE_URL is not set for test operation."
+    );
+  }
+
+  const pool = new Pool({ connectionString: e2eDbUrl });
+  try {
+    const checkRes = await pool.query("SELECT current_database() as db;");
+    if (checkRes.rows[0].db !== "crediguide_e2e_db") {
+      throw new Error(
+        `CRITICAL_SAFETY_FAIL: Target DB is ${checkRes.rows[0].db}, expected crediguide_e2e_db`
+      );
+    }
+
+    const res = await pool.query(
+      `SELECT "user_sessions"."id", "user_sessions"."userId", "user_sessions"."expiresAt", "user_sessions"."revokedAt"
+       FROM "user_sessions"
+       JOIN "users" ON "user_sessions"."userId" = "users"."id"
+       WHERE lower("users"."email") = lower($1)
+       ORDER BY "user_sessions"."createdAt" DESC
+       LIMIT 1;`,
+      [normalized]
+    );
+    if (res.rows.length === 0) return null;
+    return {
+      id: res.rows[0].id,
+      userId: res.rows[0].userId,
+      expiresAt: res.rows[0].expiresAt,
+      revokedAt: res.rows[0].revokedAt,
     };
   } finally {
     await pool.end();
