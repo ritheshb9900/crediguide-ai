@@ -65,12 +65,17 @@ export function proxy(request: NextRequest) {
 
   // 2. Early Authentication Guard for Protected Portals
   const isProtectedArea =
+    pathname === "/admin" ||
     pathname.startsWith("/admin/") ||
+    pathname === "/officer" ||
     pathname.startsWith("/officer/") ||
+    pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
+    pathname === "/applications" ||
     pathname.startsWith("/applications/") ||
     pathname.startsWith("/api/admin/") ||
-    pathname.startsWith("/api/officer/");
+    pathname.startsWith("/api/officer/") ||
+    pathname.startsWith("/api/applicant/");
 
   if (isProtectedArea) {
     const hasSessionCookie = request.cookies.has(SESSION_COOKIE_NAME);
@@ -113,6 +118,7 @@ export const config = {
     "/applications/:path*",
     "/api/admin/:path*",
     "/api/officer/:path*",
+    "/api/applicant/:path*",
     "/api/auth/:path*",
   ],
 };

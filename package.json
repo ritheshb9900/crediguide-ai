@@ -32,6 +32,7 @@
     "test:auth-forgot-password": "tsx tests/auth-forgot-password-page.test.ts",
     "test:auth-reset-password": "tsx tests/auth-reset-password-page.test.ts",
     "test:auth-verify-email": "tsx tests/auth-verify-email-page.test.ts",
+    "test:applicant-dashboard": "tsx tests/applicant-dashboard.test.ts",
     "test:e2e": "playwright test",
     "test:e2e-hardening": "tsx tests/e2e-security-hardening.test.ts",
     "auth:bootstrap": "tsx scripts/auth-bootstrap.ts"
